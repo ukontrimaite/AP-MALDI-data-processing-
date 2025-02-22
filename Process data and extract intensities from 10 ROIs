@@ -1,0 +1,66 @@
+# Load necessary libraries
+library(Cardinal)
+library(viridis)
+library(openxlsx)  # For writing to Excel
+library(ggplot2)   # For plotting
+library(moments)   # For skewness
+library(nortest)   # For normality tests
+
+# Load the file
+path_processed <-"/Users/unek/Desktop/gin8_positive.imzml"
+print(path_processed)
+
+# Load the processed imzML file
+msa_peaks <- readMSIData(path_processed)
+msa <- msa_peaks
+
+# Data pre-processing 
+msa_pre <- normalize(msa, method="tic")
+msa_pre <- reduceBaseline(msa_pre, method="locmin")
+process(msa_pre)
+msa_peaks <- peakPick(msa_pre, method="mad", SNR=2)
+process(msa_peaks)
+mse_peaks <- peakAlign(msa_peaks, tolerance=5, units="ppm")
+mse <- mse_peaks
+
+# Optional - Data pre-processing step 
+mse_filt <- subsetFeatures(mse_peaks, freq > 0.1)
+mse <- mse_filt
+
+# ----------------------------
+# ROI Extraction for 10 Cells
+# ----------------------------
+
+# Extract the coordinates data frame
+coords <- coord(mse)
+
+# Create a list to store the ROI data
+roi_list <- list()
+
+# Loop to select and name 10 ROIs
+for (i in 1:10) {
+  roi_name <- paste("cell", i, sep = "_")
+  sampleROI <- selectROI(mse, mz=159.1236, mode="region")
+  
+  # Extract intensities and coordinates from the ROI
+  roi_intensities <- intensity(mse)[, sampleROI]
+  roi_coordinates <- coord(mse)[sampleROI, ]
+  
+  # Compute mean intensities for each m/z across extracted pixels
+  mean_intensities <- rowMeans(roi_intensities, na.rm = TRUE)
+  
+  # Create a data frame with m/z and mean intensities
+  roi_data <- data.frame(mz = mz(mse), Mean_Intensity = mean_intensities)
+  names(roi_data)[2] <- roi_name  # Rename column to reflect cell name
+  
+  # Store data in the list
+  roi_list[[roi_name]] <- roi_data
+}
+
+# Combine all cell data frames into a single data frame
+combined_roi_data <- Reduce(function(x, y) merge(x, y, by = "mz", all = TRUE), roi_list)
+
+# Save the combined data frame as an Excel file
+output_excel_file <- "~/Documents/combined_roi_intensities.xlsx"
+write.xlsx(combined_roi_data, file = output_excel_file, rowNames = FALSE)
+print(paste("Excel file saved at:", output_excel_file))
