@@ -64,3 +64,39 @@ combined_roi_data <- Reduce(function(x, y) merge(x, y, by = "mz", all = TRUE), r
 output_excel_file <- "~/Documents/combined_roi_intensities.xlsx"
 write.xlsx(combined_roi_data, file = output_excel_file, rowNames = FALSE)
 print(paste("Excel file saved at:", output_excel_file))
+
+# Suppose 'combined_roi_data' has columns:
+#   mz, cell_1, cell_2, ..., cell_10
+
+# 1. Convert everything EXCEPT the 'mz' column into a matrix
+all_cell_means <- as.matrix(combined_roi_data[ , -1])
+
+# 2. Flatten that matrix into a single vector
+flattened_means <- as.vector(all_cell_means)
+
+# 3. Visualize distribution
+df_all <- data.frame(Intensity = flattened_means)
+
+# Histogram
+library(ggplot2)
+ggplot(df_all, aes(x = Intensity)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.5) +
+  labs(
+    title = "Histogram of ALL Mean Intensities Across All Cells & m/z",
+    x = "Mean Intensity",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 14)
+
+# Q-Q Plot
+qqnorm(df_all$Intensity, main = "Q-Q Plot of All Mean Intensities")
+qqline(df_all$Intensity, col = "red")
+
+# Shapiro-Wilk
+shapiro_test <- shapiro.test(df_all$Intensity)
+print(paste("Shapiro-Wilk p-value =", shapiro_test$p.value))
+
+# Skewness
+skew_val <- skewness(df_all$Intensity, na.rm = TRUE)
+print(paste("Skewness =", skew_val))
+
