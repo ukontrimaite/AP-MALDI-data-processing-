@@ -1,0 +1,82 @@
+# Load necessary libraries
+library(openxlsx)  # Load Excel file
+library(ggplot2)
+library(stats)
+library(moments)
+
+# Load the Excel file
+path_excel <- "/Users/unek/Desktop/gin8_cell_intensity_4dp.xlsx"  # Update with your file path
+print(path_excel)
+
+# Read intensity data from the Excel file
+intensity_data <- read.xlsx(path_excel, sheet = 1)
+
+# Ensure the correct column selection (extract all cell intensity values as a matrix)
+intensities <- as.vector(as.matrix(intensity_data))
+
+# 1. Extract Intensity Distribution Across All Pixels
+intensity_hist <- ggplot(data.frame(Intensity = intensities), aes(x = Intensity)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Total Ion Intensities per Pixel",
+       x = "Total Intensity",
+       y = "Frequency") +
+  theme_minimal()
+print(intensity_hist)
+
+# Apply log transformation
+log_intensities <- log10(intensities + min(intensities[intensities > 0]))
+log_intensity_hist <- ggplot(data.frame(LogIntensity = log_intensities), aes(x = LogIntensity)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Log-Transformed Total Ion Intensities per Pixel",
+       x = "Log10(Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(log_intensity_hist)
+
+# Apply Pareto Scaling
+sd_log <- sd(log_intensities)
+pareto_log_intensities <- log_intensities / sqrt(sd_log)
+pareto_hist <- ggplot(data.frame(ParetoIntensity = pareto_log_intensities), aes(x = ParetoIntensity)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Pareto-Scaled Log-Transformed Total Ion Intensities",
+       x = "Pareto-Scaled Log10(Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(pareto_hist)
+
+# Apply Autoscaling (Z-score)
+auto_log_intensities <- (log_intensities - mean(log_intensities)) / sd(log_intensities)
+auto_hist <- ggplot(data.frame(AutoIntensity = auto_log_intensities), aes(x = AutoIntensity)) +
+  geom_histogram(bins = 50, fill = "salmon", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Autoscaled Log-Transformed Total Ion Intensities",
+       x = "Autoscaled Log10(Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(auto_hist)
+
+# Q-Q plot for log-transformed intensities
+qq_log <- ggplot(data.frame(LogIntensity = log_intensities), aes(sample = LogIntensity)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Q-Q Plot of Log-Transformed Total Ion Intensities",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+print(qq_log)
+
+# Normality test for log-transformed intensities
+shapiro_log <- shapiro.test(log_intensities)
+cat("\nShapiro-Wilk Test for Log-Transformed Intensities:\n")
+cat("W-statistic:", shapiro_log$statistic, "\n")
+cat("p-value:", shapiro_log$p.value, "\n")
+if (shapiro_log$p.value > 0.05) {
+  cat("The data is not significantly different from normal (p > 0.05)\n")
+} else {
+  cat("The data is significantly different from normal (p ≤ 0.05)\n")
+}
+
+# Skewness and Kurtosis for log-transformed intensities
+cat("\nSkewness and Kurtosis for Log-Transformed Intensities:\n")
+cat("Skewness:", skewness(log_intensities), "\n")
+cat("Kurtosis:", kurtosis(log_intensities), "\n")
+
