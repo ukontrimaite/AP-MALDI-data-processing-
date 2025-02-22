@@ -1,0 +1,150 @@
+# Load necessary libraries
+library(Cardinal)
+library(ggplot2)
+library(moments)
+library(stats)
+
+# Load the file
+path_processed <- "/Users/unek/Desktop/gin8_positive.imzml"
+print(path_processed)
+
+# Read processed imzML file
+msa <- readMSIData(path_processed)
+
+# Data pre-processing 
+msa_pre <- reduceBaseline(msa, method="locmin")
+process(msa_pre)
+msa_peaks <- peakPick(msa_pre, method="mad", SNR=3)
+process(msa_peaks)
+mse_peaks <- peakAlign(msa_peaks, tolerance=5, units="ppm")
+
+# Filter low-frequency features before normalization
+mse_filt <- subsetFeatures(mse_peaks, freq > 0.1)
+fData(mse_filt)
+mse <- mse_filt  # Update mse to filtered data
+
+# Check distribution after filtering (optional)
+filtered_intensities <- colSums(intensity(mse))
+filtered_hist <- ggplot(data.frame(FilteredIntensity = filtered_intensities), aes(x = FilteredIntensity)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Total Ion Intensities per Pixel (After Filtering)",
+       x = "Total Intensity",
+       y = "Frequency") +
+  theme_minimal()
+print(filtered_hist)
+ggsave("filtered_intensity_histogram.png", filtered_hist, width = 10, height = 6, dpi = 300)
+
+cat("\nSkewness and Kurtosis for Filtered Intensities:\n")
+cat("Skewness:", skewness(filtered_intensities), "\n")
+cat("Kurtosis:", kurtosis(filtered_intensities), "\n")
+shapiro_filtered <- shapiro.test(filtered_intensities)
+cat("\nShapiro-Wilk Test for Filtered Intensities:\n")
+cat("W-statistic:", shapiro_filtered$statistic, "\n")
+cat("p-value:", shapiro_filtered$p.value, "\n")
+if (shapiro_filtered$p.value > 0.05) {
+  cat("The data is not significantly different from normal (p > 0.05)\n")
+} else {
+  cat("The data is significantly different from normal (p ≤ 0.05)\n")
+}
+
+# Apply TIC normalization last (after filtering)
+mse_normalized <- normalize(mse, method="tic")  # Normalize the filtered data
+
+# Check TIC-normalized distribution
+normalized_intensities <- colSums(intensity(mse_normalized))
+norm_hist <- ggplot(data.frame(NormalizedIntensity = normalized_intensities), aes(x = NormalizedIntensity)) +
+  geom_histogram(bins = 50, fill = "lightgreen", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of TIC-Normalized Total Ion Intensities per Pixel",
+       x = "TIC-Normalized Total Intensity",
+       y = "Frequency") +
+  theme_minimal()
+print(norm_hist)
+ggsave("tic_normalized_intensity_histogram.png", norm_hist, width = 10, height = 6, dpi = 300)
+
+# Check normality of TIC-normalized data
+cat("\nSkewness and Kurtosis for TIC-Normalized Intensities:\n")
+cat("Skewness:", skewness(normalized_intensities), "\n")
+cat("Kurtosis:", kurtosis(normalized_intensities), "\n")
+shapiro_norm <- shapiro.test(normalized_intensities)
+cat("\nShapiro-Wilk Test for TIC-Normalized Intensities:\n")
+cat("W-statistic:", shapiro_norm$statistic, "\n")
+cat("p-value:", shapiro_norm$p.value, "\n")
+if (shapiro_norm$p.value > 0.05) {
+  cat("The data is not significantly different from normal (p > 0.05)\n")
+} else {
+  cat("The data is significantly different from normal (p ≤ 0.05)\n")
+}
+
+# Log10 Transformation, Histogram Visualization, and Normality Tests After TIC Normalization.Assuming mse_normalized is the TIC-normalized object from the previous step
+
+# Extract total ion intensities from the TIC-normalized data
+normalized_intensities <- colSums(intensity(mse_normalized))
+
+# 1. Apply Log10 Transformation to TIC-Normalized Intensities
+log_norm_intensities <- log10(normalized_intensities + min(normalized_intensities[normalized_intensities > 0]))
+
+# Use min(non-zero) to handle potential zeros after normalization
+
+# 2. Create Histogram of Log-Transformed TIC-Normalized Intensities
+log_norm_hist <- ggplot(data.frame(LogNormIntensity = log_norm_intensities), aes(x = LogNormIntensity)) +
+  geom_histogram(bins = 50, fill = "lightgreen", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Log-Transformed TIC-Normalized Total Ion Intensities per Pixel",
+       x = "Log10(TIC-Normalized Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(log_norm_hist)
+ggsave("log_tic_normalized_intensity_histogram.png", log_norm_hist, width = 10, height = 6, dpi = 300)
+
+# 3. Check Skewness and Kurtosis for Log-Transformed TIC-Normalized Intensities
+cat("\nSkewness and Kurtosis for Log-Transformed TIC-Normalized Intensities:\n")
+cat("Skewness:", skewness(log_norm_intensities), "\n")
+cat("Kurtosis:", kurtosis(log_norm_intensities), "\n")
+# Ideal for normality: Skewness ~0, Kurtosis ~3 (mesokurtic)
+
+# 4. Shapiro-Wilk Test for Normality of Log-Transformed TIC-Normalized Intensities
+shapiro_log_norm <- shapiro.test(log_norm_intensities)
+cat("\nShapiro-Wilk Test for Log-Transformed TIC-Normalized Intensities:\n")
+cat("W-statistic:", shapiro_log_norm$statistic, "\n")
+cat("p-value:", shapiro_log_norm$p.value, "\n")
+if (shapiro_log_norm$p.value > 0.05) {
+  cat("The data is not significantly different from normal (p > 0.05)\n")
+} else {
+  cat("The data is significantly different from normal (p ≤ 0.05)\n")
+}
+
+# 5. Optional: Q-Q Plot for Log-Transformed TIC-Normalized Intensities
+qq_log_norm <- ggplot(data.frame(LogNormIntensity = log_norm_intensities), aes(sample = LogNormIntensity)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Q-Q Plot of Log-Transformed TIC-Normalized Total Ion Intensities",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+print(qq_log_norm)
+ggsave("log_tic_normalized_intensity_qqplot.png", qq_log_norm, width = 10, height = 6, dpi = 300)
+
+# 6. Optional: Apply Scaling (Pareto or Autoscaling) for Further Normalization
+
+# Pareto scaling on log-TIC-normalized intensities
+sd_log_norm <- sd(log_norm_intensities)
+pareto_log_norm <- log_norm_intensities / sqrt(sd_log_norm)
+pareto_norm_hist <- ggplot(data.frame(ParetoNormIntensity = pareto_log_norm), aes(x = ParetoNormIntensity)) +
+  geom_histogram(bins = 50, fill = "lightgreen", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Pareto-Scaled Log-TIC-Normalized Total Ion Intensities",
+       x = "Pareto-Scaled Log10(TIC-Normalized Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(pareto_norm_hist)
+ggsave("pareto_log_tic_normalized_intensity_histogram.png", pareto_norm_hist, width = 10, height = 6, dpi = 300)
+
+# Autoscaling on log-TIC-normalized intensities
+auto_log_norm <- (log_norm_intensities - mean(log_norm_intensities)) / sd(log_norm_intensities)
+auto_norm_hist <- ggplot(data.frame(AutoNormIntensity = auto_log_norm), aes(x = AutoNormIntensity)) +
+  geom_histogram(bins = 50, fill = "salmon", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Autoscaled Log-TIC-Normalized Total Ion Intensities",
+       x = "Autoscaled Log10(TIC-Normalized Total Intensity)",
+       y = "Frequency") +
+  theme_minimal()
+print(auto_norm_hist)
+ggsave("auto_log_tic_normalized_intensity_histogram.png", auto_norm_hist, width = 10, height = 6, dpi = 300)
+
