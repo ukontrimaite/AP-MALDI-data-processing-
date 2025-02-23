@@ -16,9 +16,9 @@ msa <- msa_peaks
 
 # Data pre-processing 
 msa_pre <- normalize(msa, method="tic")
-msa_pre <- reduceBaseline(msa_pre, method="locmin")
+msa_pre <- reduceBaseline(msa_pre, method="snip")
 process(msa_pre)
-msa_peaks <- peakPick(msa_pre, method="mad", SNR=2)
+msa_peaks <- peakPick(msa_pre, method="mad", SNR=3)
 process(msa_peaks)
 mse_peaks <- peakAlign(msa_peaks, tolerance=5, units="ppm")
 mse <- mse_peaks
@@ -78,9 +78,8 @@ flattened_means <- as.vector(all_cell_means)
 df_all <- data.frame(Intensity = flattened_means)
 
 # Histogram
-library(ggplot2)
 ggplot(df_all, aes(x = Intensity)) +
-  geom_histogram(bins = 30, fill = "blue", alpha = 0.5) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
   labs(
     title = "Histogram of ALL Mean Intensities Across All Cells & m/z",
     x = "Mean Intensity",
