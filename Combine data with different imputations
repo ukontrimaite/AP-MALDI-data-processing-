@@ -3,13 +3,14 @@ library(ggplot2)
 library(dplyr)
 library(openxlsx)
 
+# ========================== LOAD & MERGE DATA ==========================
 
 # Load the two data files
-file1 <- "/Users/unek/Desktop/gin8_cell_intensity_4dp.csv"
-file2 <- "/Users/unek/Desktop/gin8_co8_culture_cell_intensity_4dp.csv"
+file1 <- "/Users/unek/Documents/23.2.24_apmaldi_data/gin31_combined_4dp.xlsx"
+file2 <- "/Users/unek/Documents/23.2.24_apmaldi_data/ha_combined_4dp.xlsx"
 
-df1 <- read.csv(file1, stringsAsFactors = FALSE)
-df2 <- read.csv(file2, stringsAsFactors = FALSE)
+df1 <- read.xlsx(file1)
+df2 <- read.xlsx(file2)
 
 # Ensure mz is numeric
 df1$mz <- as.numeric(df1$mz)
@@ -24,105 +25,112 @@ intensity_cols <- setdiff(names(df_combined), "mz")
 # Convert intensity columns to numeric
 df_combined[intensity_cols] <- lapply(df_combined[intensity_cols], function(x) as.numeric(as.character(x)))
 
-# Perform minimal value imputation (replace NA and zero with the smallest nonzero value)
-min_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
-df_combined[intensity_cols][is.na(df_combined[intensity_cols])] <- min_value
-df_combined[intensity_cols][df_combined[intensity_cols] == 0] <- min_value
+# ========================== MINIMAL VALUE IMPUTATION ==========================
 
-# Save merged & imputed dataset
-output_path <- "/Users/unek/Desktop/gin8_combined_imputed.csv"
-write.csv(df_combined, output_path, row.names = FALSE)
-cat("Merged and imputed data saved to:", output_path, "\n")
+# Find the smallest positive value in the dataset
+min_positive_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
 
-# Extract intensity matrix for processing
-df_numeric <- df_combined[, intensity_cols]
+# Perform minimal imputation: replace NAs and zeros with the smallest positive value
+df_combined[intensity_cols][is.na(df_combined[intensity_cols])] <- min_positive_value
+df_combined[intensity_cols][df_combined[intensity_cols] == 0] <- min_positive_value
 
+# ========================== REPLACEMENT OF ZERO & NEGATIVE VALUES (MetaboAnalyst Approach) ==========================
 
-# ========================== APPLY TRANSFORMATIONS ==========================
+# Define replacement value as one-tenth of the smallest positive value
+replacement_value <- min_positive_value / 10
 
-# Log10 Transformation (MISSING LINE - ADD THIS)
+# Replace zero and negative values
+df_combined[intensity_cols][df_combined[intensity_cols] <= 0] <- replacement_value
+
+# Save the preprocessed dataset (before log transformation)
+preprocessed_output_path <- "/Users/unek/Desktop/ha_gin31preprocessed.xlsx"
+write.xlsx(df_combined, preprocessed_output_path, row.names = FALSE)
+cat("Preprocessed data saved to:", preprocessed_output_path, "\n")
+
+# ========================== APPLY LOG10 TRANSFORMATION ==========================
+
 df_log10 <- df_combined
-df_log10[intensity_cols] <- lapply(df_log10[intensity_cols], function(x) log10(x + 1))
+df_log10[intensity_cols] <- lapply(df_log10[intensity_cols], function(x) log10(x))  # No +1, to match MetaboAnalyst
 
-# Log2 Transformation
-df_log2 <- df_combined
-df_log2[intensity_cols] <- lapply(df_log2[intensity_cols], function(x) log2(x + 1))
+# Save transformed data (before scaling)
+transformed_output_path <- "/Users/unek/Desktop/ha_gin31transformed_log10.xlsx"
+write.xlsx(df_log10, transformed_output_path, row.names = FALSE)
+cat("Log10 transformed data saved to:", transformed_output_path, "\n")
 
-# Square Root Transformation
-df_sqrt <- df_combined
-df_sqrt[intensity_cols] <- lapply(df_sqrt[intensity_cols], sqrt)
+# ========================== SCALING CHOICE ==========================
 
-# ========================== APPLY SCALING ==========================
+# Choose scaling method: "pareto", "autoscale", or "none"
+scaling_method <- "pareto"  # Change this to "autoscale" or "none" as needed
 
-# Function to apply Pareto and Autoscaling
-apply_scaling <- function(df) {
-  df_pareto <- df
-  df_pareto[intensity_cols] <- scale(df[intensity_cols], center = TRUE, scale = sqrt(apply(df[intensity_cols], 2, sd, na.rm = TRUE)))
-  
-  df_auto <- df
-  df_auto[intensity_cols] <- scale(df[intensity_cols])
-  
-  return(list(pareto = df_pareto, auto = df_auto))
+# Function to apply selected scaling
+apply_scaling <- function(df, method) {
+  if (method == "pareto") {
+    df_scaled <- df
+    df_scaled[intensity_cols] <- scale(df[intensity_cols], center = TRUE, scale = sqrt(apply(df[intensity_cols], 2, sd, na.rm = TRUE)))
+    return(df_scaled)
+  } else if (method == "autoscale") {
+    df_scaled <- df
+    df_scaled[intensity_cols] <- scale(df[intensity_cols])
+    return(df_scaled)
+  } else {
+    return(df)  # If "none", return original transformed data without scaling
+  }
 }
 
-# Apply scaling to each transformation
-scaled_log10 <- apply_scaling(df_log10)
-scaled_log2 <- apply_scaling(df_log2)
-scaled_sqrt <- apply_scaling(df_sqrt)
+# Apply chosen scaling method
+df_scaled <- apply_scaling(df_log10, scaling_method)
+
+# Save scaled data only if a scaling method is chosen
+if (scaling_method != "none") {  
+  scaled_output_path <- paste0("/Users/unek/Desktop/ha_gin31_log10_", scaling_method, "_scaled.xlsx")
+  write.xlsx(df_scaled, scaled_output_path, row.names = FALSE)
+  cat("Log10 transformed +", scaling_method, "scaled data saved to:", scaled_output_path, "\n")
+} else {
+  cat("No scaling applied. Using only transformed data.\n")
+}
 
 # ========================== CREATE HISTOGRAM PLOTS ==========================
 
-# Define colors for transformations (same colors used in both plots)
+# Define colors for transformations
 color_log10 <- "red"
-  color_log2 <- "green"
-    color_sqrt <- "blue"
-      
-    # Function to generate histogram with smaller title
-    generate_histogram <- function(df, title, color) {
-      df$mean_intensity <- rowMeans(df[intensity_cols], na.rm = TRUE)
-      ggplot(df, aes(x = mean_intensity)) +
-        geom_histogram(bins = 30, fill = color, color = "black", alpha = 0.7) +  
-        labs(title = title, x = "Mean Intensity", y = "Frequency") +
-        theme_minimal() +
-        theme(plot.title = element_text(size = 10))  # **Reduce title size to prevent overlap**
-    }
-    
-    # Generate histograms for transformations (matching colors)
-    p1 <- generate_histogram(df_log10, "Log10 Transformed Mean Intensity", color_log10)
-    p2 <- generate_histogram(df_log2, "Log2 Transformed Mean Intensity", color_log2)
-    p3 <- generate_histogram(df_sqrt, "Square Root Transformed Mean Intensity", color_sqrt)
-    
-    # Use **same transformation colors** for scaled histograms
-    p4 <- generate_histogram(scaled_log10$pareto, "Log10 + Pareto Scaled", color_log10)
-    p5 <- generate_histogram(scaled_log10$auto, "Log10 + Autoscaled", color_log10)
-    p6 <- generate_histogram(scaled_log2$pareto, "Log2 + Pareto Scaled", color_log2)
-    p7 <- generate_histogram(scaled_log2$auto, "Log2 + Autoscaled", color_log2)
-    p8 <- generate_histogram(scaled_sqrt$pareto, "Square Root + Pareto Scaled", color_sqrt)
-    p9 <- generate_histogram(scaled_sqrt$auto, "Square Root + Autoscaled", color_sqrt)
-    
-    # ========================== SAVE PNG FILES ==========================
-    
-    # Save the first PNG file (Transformations only, matching colors)
-    output_transformations <- "/Users/unek/Desktop/transformations_histograms_matching_colors_small_titles.png"
-    png(output_transformations, width = 1500, height = 800, res = 150)
-    grid.arrange(p1, p2, p3, ncol = 3)
-    dev.off()
-    cat("Transformations histograms saved as:", output_transformations, "\n")
-    
-    # Save the second PNG file (Transformations + Scaling, vertically aligned with smaller titles)
-    output_transformed_scaled <- "/Users/unek/Desktop/transformed_scaled_histograms_matching_colors_vertical_small_titles.png"
-    png(output_transformed_scaled, width = 1500, height = 1200, res = 150)  # Adjust height to fit three rows
-    grid.arrange(p1, p4, p5,  
-                 p2, p6, p7,  
-                 p3, p8, p9,  
-                 ncol = 3)  # Vertically align the scaling transformations
-    dev.off()
-    cat("Transformations + Scaling histograms saved as:", output_transformed_scaled, "\n")
+  
+# Function to generate histogram
+generate_histogram <- function(df, title, color) {
+  df$mean_intensity <- rowMeans(df[intensity_cols], na.rm = TRUE)
+  ggplot(df, aes(x = mean_intensity)) +
+    geom_histogram(bins = 30, fill = color, color = "black", alpha = 0.7) +
+    labs(title = title, x = "Mean Intensity", y = "Frequency") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10))  # Reduce title size to prevent overlap
+}
 
-    # Save individual image 
-    ggsave("/Users/unek/Desktop/log10_pareto_scaled.png", plot = p4, width = 6, height = 4, dpi = 300)
+# Generate histograms for transformations
+p1 <- generate_histogram(df_log10, "Log10 Transformed Mean Intensity", color_log10)
 
-    # Save individual data file
-    write.xlsx(scaled_log10$pareto, "/Users/unek/Desktop/log10_pareto_scaled.xlsx", row.names = FALSE)
-    
-    
+# Generate histogram for scaled data (only if scaling is applied)
+if (scaling_method != "none") {
+  p2 <- generate_histogram(df_scaled, paste("Log10 +", scaling_method, "Scaled"), color_log10)
+}
+
+# ========================== SAVE HISTOGRAMS ==========================
+
+# Save transformation histogram
+ggsave("/Users/unek/Desktop/log10_transformed_histogram.png", plot = p1, width = 6, height = 4, dpi = 300)
+cat("Log10 transformed histogram saved.\n")
+
+# Save scaled histogram if applicable
+if (scaling_method != "none") {
+  ggsave(paste0("/Users/unek/Desktop/log10_", scaling_method, "_scaled_histogram.png"), plot = p2, width = 6, height = 4, dpi = 300)
+  cat("Scaled histogram saved.\n")
+}
+
+# ========================== SAVE PREPROCESSED HISTOGRAM ==========================
+
+  
+# Generate histogram for preprocessed data (before transformation)
+color_preprocessed <- "blue"
+p0 <- generate_histogram(df_combined, "Preprocessed Mean Intensity (No Transformation)", color_preprocessed)
+ggsave("/Users/unek/Desktop/preprocessed_histogram.png", plot = p0, width = 6, height = 4, dpi = 300)
+cat("Preprocessed data histogram saved.\n")
+
+
