@@ -1,0 +1,138 @@
+
+# ========================== LOAD NECESSARY LIBRARIES ==========================
+library(ggplot2)
+library(dplyr)
+library(openxlsx)
+library(missForest)  # For Random Forest Imputation
+
+# ========================== LOAD & MERGE DATA ==========================
+
+# Define file paths
+file_paths <- c(
+  "/Users/unek/Documents/ha_mad5locmin_combined_roi_intensities_blank_cells.xlsx",
+  "/Users/unek/Documents/gin28_mad5locmin_combined_roi_intensities_blank_cells.xlsx",
+  "/Users/unek/Documents/gin31_mad5locmin_combined_roi_intensities_blank_cells.xlsx",
+  "/Users/unek/Documents/gin8_mad5locmin_combined_roi_intensities_blank_cells.xlsx"
+)
+
+# Load and merge all datasets by "mz"
+dfs <- lapply(file_paths, read.xlsx)
+dfs <- lapply(dfs, function(df) { df$mz <- as.numeric(df$mz); return(df) })
+df_combined <- Reduce(function(x, y) full_join(x, y, by = "mz"), dfs)
+
+# Identify intensity columns (excluding mz)
+intensity_cols <- setdiff(names(df_combined), "mz")
+
+# Convert intensity columns to numeric
+df_combined[intensity_cols] <- lapply(df_combined[intensity_cols], function(x) as.numeric(as.character(x)))
+
+# ========================== IMPUTATION CHOICE ==========================
+
+# Choose imputation method: "minimal" or "random_forest"
+imputation_method <- "random_forest"  # Change this as needed
+
+if (imputation_method == "minimal") {
+  # Minimal imputation (Replace NAs and zeros with smallest positive value)
+  min_positive_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
+  df_combined[intensity_cols][is.na(df_combined[intensity_cols])] <- min_positive_value
+  df_combined[intensity_cols][df_combined[intensity_cols] == 0] <- min_positive_value
+  
+} else if (imputation_method == "random_forest") {
+  # Random Forest Imputation
+  data_matrix <- as.data.frame(df_combined[intensity_cols])
+  rf_imputed <- missForest(data_matrix)
+  df_combined[intensity_cols] <- rf_imputed$ximp
+}
+
+# Save the preprocessed dataset
+preprocessed_output_path <- paste0("/Users/unek/Desktop/combined_preprocessed_", imputation_method, ".xlsx")
+write.xlsx(df_combined, preprocessed_output_path, rowNames = FALSE)
+cat("Preprocessed data (", imputation_method, " Imputed) saved to: ", preprocessed_output_path, "\n")
+
+# ========================== METABOANALYST ZERO & NEGATIVE VALUE REPLACEMENT ==========================
+
+# Replace zero & negative values with one-tenth of the smallest positive value
+min_positive_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
+replacement_value <- min_positive_value / 10
+df_combined[intensity_cols][df_combined[intensity_cols] <= 0] <- replacement_value
+
+# ========================== APPLY LOG10 TRANSFORMATION ==========================
+
+df_log10 <- df_combined
+df_log10[intensity_cols] <- lapply(df_log10[intensity_cols], function(x) log10(x))
+df_log10 <- as.data.frame(df_log10)  # Convert back to dataframe after lapply
+
+# Replace Inf & NaN with replacement_value
+for (col in intensity_cols) {
+  df_log10[[col]][is.infinite(df_log10[[col]]) | is.na(df_log10[[col]])] <- replacement_value
+}
+
+# Save transformed data
+transformed_output_path <- "/Users/unek/Desktop/combined_transformed_log10.xlsx"
+write.xlsx(df_log10, transformed_output_path, rowNames = FALSE)
+cat("Log10 transformed data saved to:", transformed_output_path, "\n")
+
+# ========================== SCALING CHOICE ==========================
+
+# Choose scaling method: "pareto", "autoscale", or "none"
+scaling_method <- "pareto"  # Change as needed
+
+apply_scaling <- function(df, method) {
+  if (method == "pareto") {
+    df_scaled <- df
+    df_scaled[intensity_cols] <- scale(df[intensity_cols], center = TRUE, scale = sqrt(apply(df[intensity_cols], 2, sd, na.rm = TRUE)))
+    return(df_scaled)
+  } else if (method == "autoscale") {
+    df_scaled <- df
+    df_scaled[intensity_cols] <- scale(df[intensity_cols])
+    return(df_scaled)
+  } else {
+    return(df)  # If "none", return original transformed data
+  }
+}
+
+df_scaled <- apply_scaling(df_log10, scaling_method)
+
+# Save scaled data
+if (scaling_method != "none") {
+  scaled_output_path <- paste0("/Users/unek/Desktop/combined_log10_", scaling_method, "_scaled.xlsx")
+  write.xlsx(df_scaled, scaled_output_path, row.names = FALSE)
+  cat("Log10 transformed +", scaling_method, "scaled data saved to:", scaled_output_path, "\n")
+}
+
+# ========================== CREATE & SAVE HISTOGRAM PLOTS ==========================
+
+# Define colors
+color_preprocessed <- "blue"
+color_log10 <- "red"
+color_scaled <- "green"
+
+# Function to generate histograms
+generate_histogram <- function(df, title, color) {
+  df$mean_intensity <- rowMeans(df[intensity_cols], na.rm = TRUE)
+  ggplot(df, aes(x = mean_intensity)) +
+    geom_histogram(bins = 30, fill = color, color = "black", alpha = 0.7) +
+    labs(title = title, x = "Mean Intensity", y = "Frequency") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10))
+}
+
+# Generate histograms
+p0 <- generate_histogram(df_combined, paste("Preprocessed Mean Intensity (", imputation_method, " Imputed)"), color_preprocessed)
+p1 <- generate_histogram(df_log10, "Log10 Transformed Mean Intensity", color_log10)
+
+# Generate histogram for scaled data (only if scaling is applied)
+if (scaling_method != "none") {
+  p2 <- generate_histogram(df_scaled, paste("Log10 +", scaling_method, "Scaled Mean Intensity"), color_scaled)
+}
+
+# Save histograms
+ggsave("/Users/unek/Desktop/preprocessed_histogram.png", plot = p0, width = 6, height = 4, dpi = 300)
+ggsave("/Users/unek/Desktop/log10_transformed_histogram.png", plot = p1, width = 6, height = 4, dpi = 300)
+
+# Save scaled histogram if applicable
+if (scaling_method != "none") {
+  ggsave(paste0("/Users/unek/Desktop/log10_", scaling_method, "_scaled_histogram.png"), plot = p2, width = 6, height = 4, dpi = 300)
+}
+
+cat("Histograms saved.\n")
