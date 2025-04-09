@@ -1,0 +1,547 @@
+# Load necessary libraries
+library(Cardinal)
+library(viridis)
+library(openxlsx)  # For writing to Excel
+library(ggplot2)   # For plotting
+library(moments)   # For skewness
+library(nortest)   # For normality tests
+
+# Load the file
+path_processed <- "/Users/unek/Desktop/13.1_data/ha_positive_1.imzml"
+print(path_processed)
+
+# Load the processed imzML file
+msa_peaks <- readMSIData(path_processed)
+msa <- msa_peaks
+
+# Data pre-processing - specifications can be changed as per individual experiment 
+msa_pre <- normalize(msa, method="tic")
+msa_pre <- reduceBaseline(msa_pre, method="locmin")
+process(msa_pre)
+msa_peaks <- peakPick(msa_pre, method="mad", SNR=5)
+process(msa_peaks)
+mse_peaks <- peakAlign(msa_peaks, tolerance=5, units="ppm")
+mse <- mse_peaks
+
+# Optional - Data pre-processing step 
+mse_filt <- subsetFeatures(mse_peaks, freq > 0.1)
+mse <- mse_filt
+
+# ----------------------------
+# ROI Extraction for 10 Cells
+# ----------------------------
+
+output_path <- "/Users/unek/Desktop/image_104.1065_log150.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 104.1065, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_245.0410_log150.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 245.0410, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_184.0731_log150.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 184.0731, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_159.1239_log150.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 159.1239, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_112.0868_log150.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 112.0868, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_243.0254_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 243.0254, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_115.0865_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 115.0865, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_110.0712_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 110.0712, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_114.0661_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 114.0661, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_114.0549_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 114.0549, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_123.0552_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 123.0552, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_127.0389_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 127.0389, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_142.0975_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 142.0975, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_131.1291_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 131.1291, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_149.0597_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 149.0597, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_140.0818_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 140.0818, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_147.0764_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 147.0764, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_157.1083_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 157.1083, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_145.1335_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 145.1335, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_421.0501_log50.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 421.0501, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_110.0362_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 110.0362, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_123.0439_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 123.0439, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_126.0661_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 126.0661, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_129.0658_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 129.0658, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_129.1134_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 129.1134, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_130.0499_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 130.0499, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_131.1179_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 131.1179, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_132.1131_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 132.1131, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_134.0325_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 134.0325, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_139.0389_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 139.0389, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_139.0478_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 139.0478, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_145.0647_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 145.0647, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_146.0924_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 146.0924, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_146.1651_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 146.1651, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_149.1172_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 149.1172, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_153.0634_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 153.0634, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_154.0260_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 154.0260, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_155.1178_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 155.1178, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_156.0417_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 156.0417, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_157.1335_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 157.1335, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_159.0052_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 159.0052, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_162.0637_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 162.0637, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_165.0545_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 165.0545, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_166.0723_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 166.0723, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_166.0862_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 166.0862, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_168.1018_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 168.1018, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_170.0209_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 170.0209, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_170.0576_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 170.0576, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_171.0439_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 171.0439, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_171.1239_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 171.1239, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_174.0386_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 174.0386, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_175.0001_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 175.0001, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_175.1188_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 175.1188, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_178.0861_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 178.0861, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_180.0653_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 180.0653, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_180.1017_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 180.1017, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_181.0493_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 181.0493, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_184.0732_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 184.0732, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_185.0595_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 185.0595, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_185.1147_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 185.1147, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_185.1283_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 185.1283, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_186.0760_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 186.0760, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_187.0730_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 187.0730, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_187.1188_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 187.1188, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_188.1279_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 188.1279, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_188.1392_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 188.1392, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_198.1235_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 198.1235, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_201.0543_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 201.0543, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_202.1547_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 202.1547, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_203.2222_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 203.2222, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_204.0858_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 204.0858, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_206.0803_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 206.0803, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_208.0959_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 208.0959, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_212.1384_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 212.1384, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_212.1636_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 212.1636, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_214.1540_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 214.1540, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_214.1792_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 214.1792, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_231.0263_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 231.0263, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_237.0133_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 237.0133, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_238.1048_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 238.1048, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_239.0677_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 239.0677, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_240.1204_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 240.1204, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_243.0619_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 243.0619, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_251.0668_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 251.0668, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_264.0538_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 264.0538, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_279.1548_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 279.1548, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_286.0359_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 286.0359, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_299.1785_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 299.1785, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_301.1942_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 301.1942, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_313.1940_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 313.1940, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_326.0831_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 326.0831, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_329.0018_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 329.0018, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_329.2257_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 329.2257, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_343.2418_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 343.2418, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_397.0527_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 397.0527, transform = "log", zlim = c(0, 50), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_425.0460_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 425.0460, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_445.0939_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 445.0939, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_760.5836_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 760.5836, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_896.5976_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 896.5996, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_896.6007_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 896.6007, transform = "log", zlim = c(0, 10), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_112.0504_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 112.0504, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_136.0618_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 136.0618, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
+
+output_path <- "/Users/unek/Desktop/image_152.0566_log10.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 152.0566, transform = "log", zlim = c(0, 150), col = viridis(100))
+dev.off()
