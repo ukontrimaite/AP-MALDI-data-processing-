@@ -7,7 +7,7 @@ library(moments)   # For skewness
 library(nortest)   # For normality tests
 
 # Load the file
-path_processed <- "/Users/unek/Desktop/13.1_data/ha_positive_1.imzml"
+path_processed <- "/Users/unek/Desktop/13.1_data/gin31_positive_dhb.imzml"
 print(path_processed)
 
 # Load the processed imzML file
@@ -198,7 +198,7 @@ dev.off()
 
 output_path <- "/Users/unek/Desktop/image_146.1651_log10.png"
 png(output_path, width = 800, height = 800)
-image(mse_peaks, mz = 146.1651, transform = "log", zlim = c(0, 10), col = viridis(100))
+image(mse_peaks, mz = 146.1651, transform = "log", zlim = c(0, 50), col = viridis(100))
 dev.off()
 
 output_path <- "/Users/unek/Desktop/image_149.1172_log10.png"
@@ -343,7 +343,7 @@ dev.off()
 
 output_path <- "/Users/unek/Desktop/image_187.0730_log10.png"
 png(output_path, width = 800, height = 800)
-image(mse_peaks, mz = 187.0730, transform = "log", zlim = c(0, 10), col = viridis(100))
+image(mse_peaks, mz = 187.0730, transform = "log", zlim = c(0, 50), col = viridis(100))
 dev.off()
 
 output_path <- "/Users/unek/Desktop/image_187.1188_log10.png"
@@ -488,7 +488,7 @@ dev.off()
 
 output_path <- "/Users/unek/Desktop/image_329.0018_log10.png"
 png(output_path, width = 800, height = 800)
-image(mse_peaks, mz = 329.0018, transform = "log", zlim = c(0, 10), col = viridis(100))
+image(mse_peaks, mz = 329.0018, transform = "log", zlim = c(0, 50), col = viridis(100))
 dev.off()
 
 output_path <- "/Users/unek/Desktop/image_329.2257_log10.png"
@@ -513,7 +513,7 @@ dev.off()
 
 output_path <- "/Users/unek/Desktop/image_445.0939_log10.png"
 png(output_path, width = 800, height = 800)
-image(mse_peaks, mz = 445.0939, transform = "log", zlim = c(0, 10), col = viridis(100))
+image(mse_peaks, mz = 445.0939, transform = "log", zlim = c(0, 50), col = viridis(100))
 dev.off()
 
 output_path <- "/Users/unek/Desktop/image_760.5836_log10.png"
@@ -528,7 +528,7 @@ dev.off()
 
 output_path <- "/Users/unek/Desktop/image_896.6007_log10.png"
 png(output_path, width = 800, height = 800)
-image(mse_peaks, mz = 896.6007, transform = "log", zlim = c(0, 10), col = viridis(100))
+image(mse_peaks, mz = 896.6007, transform = "log", zlim = c(0,50), col = viridis(100))
 dev.off()
 
 output_path <- "/Users/unek/Desktop/image_112.0504_log10.png"
