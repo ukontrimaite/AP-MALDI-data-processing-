@@ -89,7 +89,7 @@ x_range_padding <- max(abs(min_log2fc), abs(max_log2fc)) + 1
 # Create the volcano plot with adjusted limits
 volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), color = Significance)) +
   geom_point(alpha = 0.8, size = 3) +
-  scale_color_manual(values = c("Upregulated" = "#E41A1C", "Downregulated" = "#377EB8", "Not Significant" = "lightgray")) +
+  scale_color_manual(values = c("Upregulated" = "#E57373", "Downregulated" = "#4682B4", "Not Significant" = "lightgray")) +
   
   # Add threshold lines
   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 0.8) +
