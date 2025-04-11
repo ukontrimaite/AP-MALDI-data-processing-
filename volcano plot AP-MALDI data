@@ -1,0 +1,122 @@
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Load the data
+data_path <- "/Users/unek/Desktop/group_gin_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin.csv"  # Adjust the path to your file
+data <- read.csv(data_path)
+
+# Extract GIN and HA samples (assuming sample names are labeled accordingly)
+gin_samples <- grep("^GIN", colnames(data), value = TRUE)
+ha_samples <- grep("^HA", colnames(data), value = TRUE)
+
+# Initialize a list to store results
+volcano_results <- list()
+
+# Loop through each feature (m/z) to calculate log2FC and perform Wilcoxon test (Mann–Whitney U)
+for (i in 1:nrow(data)) {
+  mz <- rownames(data)[i]  # Get the m/z value for the feature
+  
+  # Extract the GIN and HA values for the feature
+  gin_values <- as.numeric(data[i, gin_samples])
+  ha_values <- as.numeric(data[i, ha_samples])
+  
+  # Check for missing values in this feature
+  if (any(is.na(gin_values)) | any(is.na(ha_values))) {
+    next  # Skip this feature if there are missing values
+  }
+  
+  # Perform Mann–Whitney U test (Wilcoxon test in R)
+  test_result <- tryCatch({
+    wilcox.test(gin_values, ha_values, alternative="two.sided")
+  }, warning = function(w) {
+    NULL  # Ignore warning if there's a tie
+  }, error = function(e) {
+    return(NULL)
+  })
+  
+  if (is.null(test_result)) next  # Skip this feature if test couldn't be performed
+  
+  p_value <- test_result$p.value
+  
+  # Calculate log2 fold change (log10-transformed data)
+  fold_change <- median(gin_values) / median(ha_values)
+  
+  # Since the data is log10, take log2 of the fold change
+  log2fc <- sign(fold_change) * log2(abs(fold_change))  # log2 of the fold change (preserving sign)
+  
+  # Ensure no zero p-values for -log10 transformation
+  p_value <- ifelse(p_value == 0, 1e-10, p_value)  # Replace zero p-values with 1e-10
+  
+  # Calculate -log10(p-value)
+  log10p_value <- -log10(p_value)
+  
+  # Store the results in the list
+  volcano_results[[i]] <- data.frame(
+    mz = mz,
+    log2FC = log2fc,
+    p_value = p_value,
+    log10_p_value = log10p_value,
+    fold_change = fold_change
+  )
+}
+
+# Combine the results into a single data frame
+volcano_df <- do.call(rbind, volcano_results)
+
+# Check for missing values in log2FC and p-values (should return 0)
+sum(is.na(volcano_df$log2FC))  # Should be 0
+sum(is.na(volcano_df$log10_p_value))  # Should be 0
+
+# Remove any rows with missing values (ensure no NAs remain)
+volcano_df <- volcano_df[complete.cases(volcano_df), ]
+
+# Adjust p-values using Benjamini–Hochberg FDR correction
+volcano_df$adj_p_value <- p.adjust(volcano_df$p_value, method = "fdr")
+
+# Categorize significance based on log2FC and adjusted p-value
+volcano_df$Significance <- "Not Significant"
+volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC > 1] <- "Upregulated"
+volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC < -1] <- "Downregulated"
+
+# Get the max and min log2FC for the plot (for setting proper xlim)
+max_log2fc <- max(volcano_df$log2FC, na.rm = TRUE)
+min_log2fc <- min(volcano_df$log2FC, na.rm = TRUE)
+
+# Adjust xlim dynamically to ensure it fits the data better
+x_range_padding <- max(abs(min_log2fc), abs(max_log2fc)) + 1
+
+# Create the volcano plot with adjusted limits
+volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), color = Significance)) +
+  geom_point(alpha = 0.8, size = 3) +
+  scale_color_manual(values = c("Upregulated" = "#E41A1C", "Downregulated" = "#377EB8", "Not Significant" = "lightgray")) +
+  
+  # Add threshold lines
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 0.8) +
+  geom_vline(xintercept = -1, linetype = "dashed", color = "black", size = 0.8) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black", size = 0.8) +
+  
+  # Customize axes limits based on data (removes unnecessary white space)
+  ylim(0, 20) +  # Adjust y-axis as before
+  xlim(-x_range_padding, x_range_padding) +  # Dynamically adjust xlim based on data range
+  
+  # Title and labels
+  labs(title = "Volcano Plot: GIN vs HA (log2FC, Mann–Whitney + BH FDR)",
+       x = "log₂ Fold Change", 
+       y = "-log₁₀ Adjusted p-value") +
+  
+  # Add custom legend and styling
+  theme_minimal(base_size = 14) +
+  theme(legend.title = element_blank(), 
+        legend.position = "top", 
+        panel.grid = element_blank())
+
+# Print plot
+print(volcano_plot)
+
+# Save volcano plot (optional)
+ggsave("/Users/unek/Desktop/volcano_plot_GIN_vs_HA_adjusted.png", plot = volcano_plot, width = 10, height = 6)
+
+# Optionally save the results table with all details
+write.csv(volcano_df, "/Users/unek/Desktop/volcano_results_GIN_vs_HA.csv", row.names = FALSE)
+
