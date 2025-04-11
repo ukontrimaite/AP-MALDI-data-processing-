@@ -1,0 +1,94 @@
+# ----------------------------
+# Normality + Variance Testing (5 Random Features)
+# ----------------------------
+
+# Load required packages
+if (!require("readxl")) install.packages("readxl")
+if (!require("car")) install.packages("car")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+library(readxl)
+library(car)
+library(dplyr)
+library(tidyr)
+
+# Load data
+file_path <- "/Users/unek/Desktop/GlobalGIN_HAcombined_log10_pareto_scaled_mad5locmin.xlsx"
+data <- read_excel(file_path)
+
+# Extract group names from column headers (excluding 'mz')
+colnames(data)[-1] <- make.names(colnames(data)[-1])  # clean names for R
+group_names <- gsub("_\\d+$", "", colnames(data)[-1])
+
+# Add proper group and sample names
+colnames(data)[-1] <- paste0(group_names, "_", seq_len(ncol(data)-1))
+
+# Randomly select 5 features
+set.seed(123)  # for reproducibility
+sampled_data <- data[sample(1:nrow(data), 10), ]
+
+# Prepare a list to store results
+results <- list()
+
+# Loop through each selected feature
+for (i in 1:nrow(sampled_data)) {
+  row <- sampled_data[i, ]
+  mz <- row$mz
+  
+  # Create a tidy data frame for that row
+  row_tidy <- row %>% 
+    pivot_longer(-mz, names_to = "Sample", values_to = "Value") %>%
+    mutate(Group = gsub("_\\d+", "", Sample))
+  
+  # Shapiro-Wilk normality test by group
+  norm_pvals <- row_tidy %>%
+    group_by(Group) %>%
+    summarise(Normality_p = shapiro.test(Value)$p.value) %>%
+    pivot_wider(names_from = Group, values_from = Normality_p)
+  
+  # Levene's test for equal variance vs HA for each GIN group
+  row_tidy$Group <- factor(row_tidy$Group)
+  var_gin28 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN28", "HA")))
+  var_gin8 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN8", "HA")))
+  var_gin31 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN31", "HA")))
+  
+  # Test decision helper
+  recommend <- function(norm1, norm2, var_eq) {
+    if (norm1 > 0.05 && norm2 > 0.05) {
+      if (var_eq > 0.05) return("t-test (equal var)")
+      else return("t-test (unequal var)")
+    } else {
+      return("Mann–Whitney U")
+    }
+  }
+  
+  # Get normality p-values
+  p_gin28 <- norm_pvals$GIN28
+  p_gin8 <- norm_pvals$GIN8
+  p_gin31 <- norm_pvals$GIN31
+  p_ha <- norm_pvals$HA
+  
+  results[[i]] <- data.frame(
+    mz = mz,
+    Norm_GIN28 = p_gin28,
+    Norm_GIN8 = p_gin8,
+    Norm_GIN31 = p_gin31,
+    Norm_HA = p_ha,
+    Levene_GIN28_HA = var_gin28[1, "Pr(>F)"],
+    Levene_GIN8_HA = var_gin8[1, "Pr(>F)"],
+    Levene_GIN31_HA = var_gin31[1, "Pr(>F)"],
+    Test_GIN28_HA = recommend(p_gin28, p_ha, var_gin28[1, "Pr(>F)"]),
+    Test_GIN8_HA = recommend(p_gin8, p_ha, var_gin8[1, "Pr(>F)"]),
+    Test_GIN31_HA = recommend(p_gin31, p_ha, var_gin31[1, "Pr(>F)"])
+  )
+}
+
+# Combine into one summary table
+summary_table <- do.call(rbind, results)
+
+# Print summary
+print(summary_table)
+
+# Optionally save
+write.csv(summary_table, "/Users/unek/Desktop/normality_variance_test_summary.csv", row.names = FALSE)
+
