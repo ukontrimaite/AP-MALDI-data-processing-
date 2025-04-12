@@ -1,0 +1,101 @@
+# === Load required libraries ===
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+# === Optional toggle ===
+show_labels <- TRUE  # Set to FALSE to hide m/z text labels on plot
+
+# === Step 1: Load the volcano and PCA loading files ===
+volcano_df <- read_csv("/Users/unek/Desktop/volcano_results_GIN_vs_HA_2.csv")
+pca_loadings <- read_csv("/Users/unek/Desktop/dfa_loadings_gin_ha_2.csv")
+
+# === Step 2: Rename columns to reflect actual content ===
+colnames(pca_loadings)[1:2] <- c("mz", "PC1_loading")
+
+# === Step 3: Ensure m/z columns are numeric in both datasets ===
+pca_loadings <- pca_loadings %>% mutate(mz = as.numeric(mz))
+volcano_df   <- volcano_df %>% mutate(mz = as.numeric(mz))
+
+# === Step 4: Identify statistically significant features ===
+sig_features <- volcano_df %>%
+  filter(adj_p_value < 0.05, abs(log2FC) > 1.5)
+
+# === Step 5: Get top 20% of features with highest absolute PC1 loadings ===
+pca_top_20 <- pca_loadings %>%
+  mutate(abs_loading = abs(PC1_loading)) %>%
+  arrange(desc(abs_loading)) %>%
+  slice_head(n = ceiling(0.2 * nrow(pca_loadings)))
+
+# === Step 6: Find overlapping m/z values ===
+overlap_mz <- intersect(sig_features$mz, pca_top_20$mz)
+
+# === Step 7: Annotate volcano_df with overlap and significance ===
+volcano_df <- volcano_df %>%
+  mutate(
+    highlight = mz %in% overlap_mz,
+    Significance = case_when(
+      adj_p_value < 0.05 & log2FC > 1  ~ "Upregulated",
+      adj_p_value < 0.05 & log2FC < -1 ~ "Downregulated",
+      TRUE ~ "Not Significant"
+    )
+  )
+
+# === Step 8: Merge in PC1 loadings and annotate PCA-top-20 membership ===
+volcano_df <- left_join(volcano_df, pca_loadings[, c("mz", "PC1_loading")], by = "mz") %>%
+  mutate(in_top_20_PCA = mz %in% pca_top_20$mz)
+
+# === Step 9: Generate base volcano plot ===
+volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value))) +
+  # Plot all points with base colors
+  geom_point(aes(color = Significance), size = 3, alpha = 0.6) +
+  
+  # Overlay brighter points for overlapping features
+  geom_point(
+    data = subset(volcano_df, highlight & Significance == "Upregulated"),
+    color = "#FF1744", size = 3.2, shape = 16, stroke = 1
+  ) +
+  geom_point(
+    data = subset(volcano_df, highlight & Significance == "Downregulated"),
+    color = "#2979FF", size = 3.2, shape = 16, stroke = 1
+  ) +
+  
+  # Threshold lines
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  
+  # Base color scheme
+  scale_color_manual(values = c(
+    "Upregulated" = "#E57373",
+    "Downregulated" = "#4682B4",
+    "Not Significant" = "lightgray"
+  )) +
+  
+  # Labels and styling
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top",
+    panel.grid = element_blank()
+  ) +
+  
+  labs(
+    title = if (show_title) "Volcano Plot: Highlighting PCA + Univariate Overlap" else NULL,
+    x = "log₂ Fold Change",
+    y = "-log₁₀ Adjusted p-value"
+  )
+
+show_title <- FALSE  # Set to FALSE if you want no title
+
+
+# === Step 10: Show and save the plot ===
+print(volcano_plot)
+ggsave("/Users/unek/Desktop/volcano_plot_auto_overlap_highlighted.png", plot = volcano_plot, width = 10, height = 6)
+
+# === Step 11: Export CSV with annotations ===
+output_df <- volcano_df %>%
+  select(mz, log2FC, raw_fold_change, p_value, adj_p_value, Significance,
+         PC1_loading, in_top_20_PCA, highlight)
+
+write_csv(output_df, "/Users/unek/Desktop/volcano_PCA_overlap_summary.csv")
+
