@@ -2,13 +2,18 @@
 library(ggplot2)
 library(dplyr)
 
-# Load the data
-data_path <- "/Users/unek/Desktop/gin8_ha_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin_1.csv"  # Adjust the path
-data <- read.csv(data_path)
+# Load the data, and keep m/z as a column (don't set as rownames yet)
+data_path <- "/Users/unek/Desktop/group_gin_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin.csv"
+data_raw <- read.csv(data_path, check.names = FALSE)
+
+# Extract m/z values and store them
+mz_values <- data_raw[[1]]  # Assuming first column has m/z
+data <- data_raw[ , -1]     # Remove the m/z column for now
+rownames(data) <- mz_values # Set rownames temporarily for processing
 
 # Extract GIN and HA sample column names
 gin_samples <- grep("^GIN", colnames(data), value = TRUE)
-ha_samples <- grep("^HA", colnames(data), value = TRUE)
+ha_samples  <- grep("^HA", colnames(data), value = TRUE)
 
 # Initialize list to store volcano plot results
 volcano_results <- list()
@@ -19,7 +24,7 @@ for (i in 1:nrow(data)) {
   
   # Extract raw intensity values
   gin_raw <- as.numeric(data[i, gin_samples])
-  ha_raw <- as.numeric(data[i, ha_samples])
+  ha_raw  <- as.numeric(data[i, ha_samples])
   
   # Skip if missing values are present
   if (any(is.na(gin_raw)) | any(is.na(ha_raw))) next
@@ -29,7 +34,7 @@ for (i in 1:nrow(data)) {
   
   # Apply log10 transformation with small pseudocount to avoid log(0)
   gin_values <- log10(gin_raw + 1e-8)
-  ha_values <- log10(ha_raw + 1e-8)
+  ha_values  <- log10(ha_raw + 1e-8)
   
   # Perform Mann–Whitney U test (Wilcoxon rank-sum)
   test_result <- tryCatch({
@@ -61,7 +66,7 @@ for (i in 1:nrow(data)) {
   )
 }
 
-# Combine all results into a data frame
+# Combine all results into a single data frame
 volcano_df <- do.call(rbind, volcano_results)
 
 # Remove any NA rows
@@ -72,7 +77,7 @@ volcano_df$adj_p_value <- p.adjust(volcano_df$p_value, method = "fdr")
 
 # Categorize significance
 volcano_df$Significance <- "Not Significant"
-volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC > 1] <- "Upregulated"
+volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC > 1]  <- "Upregulated"
 volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC < -1] <- "Downregulated"
 
 # Calculate limits for the volcano plot
@@ -83,12 +88,17 @@ x_range_padding <- max(abs(min_log2fc), abs(max_log2fc)) + 1
 # Generate volcano plot
 volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), color = Significance)) +
   geom_point(alpha = 0.8, size = 3) +
-  scale_color_manual(values = c("Upregulated" = "#E57373", "Downregulated" = "#4682B4", "Not Significant" = "lightgray")) +
+  scale_color_manual(values = c(
+    "Upregulated" = "#E57373",
+    "Downregulated" = "#4682B4",
+    "Not Significant" = "lightgray"
+  )) +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black", size = 0.8) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black", size = 0.8) +
   xlim(-x_range_padding, x_range_padding) +
   ylim(0, 20) +
   labs(
+    title = "Volcano Plot: GIN vs HA",
     x = "log₂ Fold Change",
     y = "-log₁₀ Adjusted p-value"
   ) +
@@ -99,10 +109,9 @@ volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), colo
     panel.grid = element_blank()
   )
 
-# Print volcano plot
+# Print the volcano plot
 print(volcano_plot)
 
-# Save outputs
-ggsave("/Users/unek/Desktop/volcano_plot_GIN8_vs_HA_adjusted.png", plot = volcano_plot, width = 10, height = 6)
-write.csv(volcano_df, "/Users/unek/Desktop/volcano_results_GIN31_vs_HA.csv", row.names = FALSE)
-
+# Save volcano plot and results table
+ggsave("/Users/unek/Desktop/volcano_plot_GIN_vs_HA_adjusted.png", plot = volcano_plot, width = 10, height = 6)
+write.csv(volcano_df, "/Users/unek/Desktop/volcano_results_GIN_vs_HA.csv", row.names = FALSE)
