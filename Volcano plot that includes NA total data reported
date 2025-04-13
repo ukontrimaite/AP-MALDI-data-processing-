@@ -1,0 +1,124 @@
+# === Load required libraries ===
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+# === Optional toggle ===
+show_labels <- TRUE
+show_title <- TRUE
+
+# === Step 1: Load the original data (with m/z in first column) ===
+data_path <- "/Users/unek/Desktop/group_gin_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin.csv"
+data_raw <- read.csv(data_path, check.names = FALSE)
+
+# === Step 2: Extract m/z values and isolate the data ===
+mz_values <- data_raw[[1]]               # first column = m/z
+data <- data_raw[, -1]                   # remove m/z column
+rownames(data) <- mz_values              # assign m/z to rownames
+
+# === Step 3: Half-Minimum Imputation (row-wise) ===
+data_imputed <- t(apply(data, 1, function(row) {
+  row_min <- min(row, na.rm = TRUE)
+  row[is.na(row)] <- row_min / 2
+  return(row)
+}))
+
+# === Step 4: Replace data with imputed version ===
+data <- data_imputed
+
+# === Step 5: Identify GIN and HA sample columns ===
+gin_samples <- grep("^GIN", colnames(data), value = TRUE)
+ha_samples  <- grep("^HA", colnames(data), value = TRUE)
+
+# === Step 6: Initialize results list ===
+volcano_results <- list()
+
+# === Step 7: Perform statistical testing for each feature ===
+for (i in 1:nrow(data)) {
+  mz <- rownames(data)[i]
+  
+  gin_raw <- as.numeric(data[i, gin_samples])
+  ha_raw  <- as.numeric(data[i, ha_samples])
+  
+  # Default values
+  log2fc <- NA
+  raw_fold_change <- NA
+  p_value <- NA
+  log10p_value <- NA
+  
+  if (!any(is.na(gin_raw)) & !any(is.na(ha_raw))) {
+    raw_fold_change <- median(gin_raw) / median(ha_raw)
+    gin_values <- log10(gin_raw + 1e-8)
+    ha_values  <- log10(ha_raw + 1e-8)
+    
+    test_result <- tryCatch({
+      wilcox.test(gin_values, ha_values, alternative = "two.sided")
+    }, warning = function(w) NULL, error = function(e) NULL)
+    
+    if (!is.null(test_result)) {
+      p_value <- test_result$p.value
+      fold_change <- median(gin_values) - median(ha_values)
+      log2fc <- fold_change * log2(10)
+      p_value <- ifelse(p_value == 0, 1e-10, p_value)
+      log10p_value <- -log10(p_value)
+    }
+  }
+  
+  volcano_results[[i]] <- data.frame(
+    mz = mz,
+    log2FC = log2fc,
+    raw_fold_change = raw_fold_change,
+    p_value = p_value,
+    log10_p_value = log10p_value
+  )
+}
+
+# === Step 8: Combine all results ===
+volcano_df <- do.call(rbind, volcano_results)
+
+# === Step 9: Adjust p-values and annotate significance ===
+volcano_df$adj_p_value <- p.adjust(volcano_df$p_value, method = "fdr")
+
+volcano_df$Significance <- "Not Significant"
+volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC > 1]  <- "Upregulated"
+volcano_df$Significance[volcano_df$adj_p_value < 0.05 & volcano_df$log2FC < -1] <- "Downregulated"
+
+# === Step 10: Create the volcano plot ===
+max_log2fc <- max(volcano_df$log2FC, na.rm = TRUE)
+min_log2fc <- min(volcano_df$log2FC, na.rm = TRUE)
+x_range_padding <- max(abs(min_log2fc), abs(max_log2fc)) + 1
+
+show_title <- FALSE  # Set to FALSE if you want no title
+
+volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), color = Significance)) +
+  geom_point(alpha = 0.8, size = 3) +
+  scale_color_manual(values = c(
+    "Upregulated" = "#E57373",
+    "Downregulated" = "#4682B4",
+    "Not Significant" = "lightgray"
+  )) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black", size = 0.8) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black", size = 0.8) +
+  xlim(-x_range_padding, x_range_padding) +
+  ylim(0, 20) +
+  labs(
+    title = if (show_title) "Volcano Plot: GIN vs HA" else NULL,
+    x = "log₂ Fold Change",
+    y = "-log₁₀ Adjusted p-value"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top",
+    panel.grid = element_blank()
+  )
+
+show_title <- FALSE  # Set to FALSE if you want no title
+
+
+# === Step 12: Show and save results ===
+print(volcano_plot)
+ggsave("/Users/unek/Desktop/volcano_plot_GIN_vs_HA_adjusted.png", plot = volcano_plot, width = 10, height = 6)
+
+write.csv(volcano_df, "/Users/unek/Desktop/volcano_results_GIN_vs_HA.csv", row.names = FALSE)
+
