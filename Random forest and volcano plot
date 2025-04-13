@@ -1,0 +1,68 @@
+# === Load required libraries ===
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+# === Options ===
+show_labels <- TRUE
+show_title  <- TRUE
+
+# === Step 1: Load volcano and RF feature importance files ===
+volcano_df <- read_csv("/Users/unek/Desktop/volcano_results_GIN_vs_HA_2.csv")
+rf_importance <- read_csv("/Users/unek/Desktop/random_forest_feature_importance.csv")
+
+# === Step 2: Make sure m/z columns are numeric and clean ===
+volcano_df <- volcano_df %>% mutate(mz = as.numeric(mz))
+rf_importance <- rf_importance %>% mutate(mz = as.numeric(mz))
+
+# === Step 3: Merge both datasets by mz ===
+merged_df <- left_join(volcano_df, rf_importance, by = "mz") %>%
+  mutate(matched_RF_feature = !is.na(MeanDecreaseAccuracy))
+
+# === Step 4: Annotate volcano significance ===
+merged_df <- merged_df %>%
+  mutate(Significance = case_when(
+    adj_p_value < 0.05 & log2FC > 1  ~ "Upregulated",
+    adj_p_value < 0.05 & log2FC < -1 ~ "Downregulated",
+    TRUE                             ~ "Not Significant"
+  ))
+
+# === Step 5: Generate volcano plot with RF matches ===
+volcano_plot <- ggplot(merged_df, aes(x = log2FC, y = -log10(adj_p_value))) +
+  geom_point(aes(color = Significance), size = 3, alpha = 0.6) +
+  
+  # Overlay brighter points for overlapping features
+  geom_point(
+    data = subset(merged_df, matched_RF_feature & Significance == "Upregulated"),
+    color = "#FF1744", size = 3.2
+  ) +
+  geom_point(
+    data = subset(merged_df, matched_RF_feature & Significance == "Downregulated"),
+    color = "#2979FF", size = 3.2
+  ) +
+  
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  scale_color_manual(values = c(
+    "Upregulated" = "#E57373",
+    "Downregulated" = "#4682B4",
+    "Not Significant" = "lightgray"
+  )) +
+  labs(
+    title = if (show_title) "" else NULL,
+    x = "log₂ Fold Change",
+    y = "-log₁₀ Adjusted p-value"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top",
+    panel.grid = element_blank()
+  )
+
+
+# === Step 6: Save plot and merged CSV ===
+ggsave("/Users/unek/Desktop/volcano_rf_matched_plot.png", plot = volcano_plot, width = 10, height = 6, dpi = 300)
+
+write_csv(merged_df, "/Users/unek/Desktop/volcano_rf_combined_output.csv")
+
