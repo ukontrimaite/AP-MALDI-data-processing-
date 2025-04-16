@@ -1,0 +1,76 @@
+# 📦 Load required libraries
+library(pheatmap)
+library(RColorBrewer)
+library(gtools)
+
+# 📂 Load your data
+data <- read.csv("/Users/unek/Desktop/Random_forest.csv", row.names = 1)
+
+# 🔁 Transpose: rows = samples, columns = metabolites
+data_t <- t(data)
+
+# 🧬 Keep only HA and GIN28 samples
+selected_samples <- grep("^(HA|GIN8)_", rownames(data_t), value = TRUE)
+data_t <- data_t[selected_samples, ]
+
+# 🧪 Log2 transform to reduce skew
+data_log <- log2(data_t + 1)
+
+# 🔬 Z-score normalization per metabolite
+data_z <- scale(data_log)
+
+# 📊 Select top N features (from Random Forest)
+top_n <- 13  # adjust as needed
+vars <- apply(data_z, 2, var)
+top_features <- names(sort(vars, decreasing = TRUE)[1:top_n])
+data_top <- data_z[, top_features]
+
+# 🧬 Standardize sample names to support natural sorting (e.g. HA_01)
+rownames(data_top) <- gsub("_(\\d)(?!\\d)", "_0\\1", rownames(data_top), perl = TRUE)
+
+# 🧬 Extract group names and prepare annotations
+cell_groups <- sub("_.*", "", rownames(data_top))
+annotation_col <- data.frame(Group = cell_groups)
+rownames(annotation_col) <- rownames(data_top)
+
+# 🎨 Define colors for HA and GIN28
+group_palette <- c(HA = "#1B98E0", GIN8 = "#D7263D")
+ann_colors <- list(Group = group_palette)
+
+# 🔠 Sort samples by group and natural order
+group_order <- c("HA", "GIN8")
+group_ordered_samples <- unlist(lapply(group_order, function(g) {
+  mixedsort(grep(paste0("^", g), rownames(data_top), value = TRUE))
+}))
+data_top_ordered <- data_top[group_ordered_samples, ]
+annotation_col <- annotation_col[group_ordered_samples, , drop = FALSE]
+
+# 🔍 Determine dominant group per metabolite
+group_means <- aggregate(data_top_ordered, by = list(annotation_col$Group), FUN = mean)
+rownames(group_means) <- group_means$Group.1
+group_means <- group_means[, -1]
+feature_dominant_group <- apply(group_means, 2, function(x) names(which.max(x)))
+feature_order <- order(feature_dominant_group)
+data_top_ordered_grouped <- t(data_top_ordered)[feature_order, ]
+
+# 📤 Save as PNG to Desktop (edit path as needed)
+png("/Users/unek/Desktop/RandomForest_Heatmap_HA_vs_GIN8.png", width = 1600, height = 1200, res = 150)
+
+# 🔥 Plot heatmap
+pheatmap(data_top_ordered_grouped,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         annotation_col = annotation_col,
+         annotation_colors = ann_colors,
+         color = colorRampPalette(rev(brewer.pal(11, "RdBu")))(100),
+         show_colnames = TRUE,
+         show_rownames = TRUE,
+         fontsize_row = 10,
+         fontsize_col = 8,
+         angle_col = 45,
+         border_color = NA,
+         main = "Top Discriminatory Metabolites (HA vs GIN8)")
+
+# 📤 Close PNG device
+dev.off()
+
