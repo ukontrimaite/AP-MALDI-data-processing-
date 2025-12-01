@@ -16,11 +16,11 @@ library(ggrepel)
 # ============================
 # Define File Paths
 # ============================
-data_path <- "/Users/unek/Desktop/HA_CO.csv"
-pca_output_path <- "/Users/unek/Desktop/pca_results_negative.csv"
+data_path <- "/Users/unek/Desktop/combined_ppm_merged_random_forest_pcadf.csv"
+pca_output_path <- "/Users/unek/Desktop/pca_results_pos.csv"
 pca_scores_path <- "/Users/unek/Desktop/pca_scores.csv"
-dfa_output_path <- "/Users/unek/Desktop/dfa_results_single_cell_negative.csv"
-dfa_loadings_path <- "/Users/unek/Desktop/dfa_loadings_gin_ha.csv"
+dfa_output_path <- "/Users/unek/Desktop/dfa_results_pos.csv"
+dfa_loadings_path <- "/Users/unek/Desktop/dfa_loadings_pos.csv"
 
 pca_plot_path <- "/Users/unek/Desktop/PCA_plot_final.png"
 pca_plot_ci_path <- "/Users/unek/Desktop/PCA_plot_with_95CI.png"
@@ -102,6 +102,45 @@ p_filled <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = Class, fill = Class
 ggsave(pca_plot_filled_path, plot = p_filled, width = 8, height = 6)
 
 # ============================
+# PCA Mean Values & Loadings for Selected PC
+# ============================
+
+# Use the original sample labels from the first column of 'data'
+pca_raw_values <- data.frame(
+  Sample = data[, 1],          # collagen_1, collagen_2, control_1, ...
+  pca_results$x[, 1:5]         # PC1–PC5 scores
+)
+
+# Save the raw PC values with sample labels
+raw_pc_path <- "/Users/unek/Desktop/PCA_raw_PC_values.csv"
+write.csv(pca_raw_values, raw_pc_path, row.names = FALSE)
+
+# Compute mean PC values per group (PC1–PC5)
+pca_means <- aggregate(pca_results$x[, 1:4],
+                       by = list(Class = label),
+                       FUN = mean)
+
+# Save mean PC direction values
+mean_pc_path <- "/Users/unek/Desktop/PCA_mean_PC_values.csv"
+write.csv(pca_means, mean_pc_path, row.names = FALSE)
+
+# Select which PC to inspect (e.g., 1 = PC1)
+selected_PC <- 1   # <<< change this to the PC you want (1, 2, 3...)
+
+# Extract loadings for the selected PC
+pc_loadings_df <- data.frame(
+  Feature = colnames(features),
+  Loading = pca_results$rotation[, selected_PC]
+)
+
+# Sort by absolute loading
+pc_loadings_df <- pc_loadings_df[order(abs(pc_loadings_df$Loading), decreasing = TRUE), ]
+
+# Save loadings for the selected PC
+pc_loading_path <- paste0("/Users/unek/Desktop/PCA_Loadings_PC", selected_PC, ".csv")
+write.csv(pc_loadings_df, pc_loading_path, row.names = FALSE)
+
+# ============================
 # DFA Function
 # ============================
 pcdfa <- function(x, label, no_pc = 10, maxfac = NULL) {
@@ -145,12 +184,12 @@ pcdfa <- function(x, label, no_pc = 10, maxfac = NULL) {
 # ============================
 # Perform DFA for Selected Groups
 # ============================
-selected_groups <- c("HA_GIN", "HA")
+selected_groups <- c("collagen", "control")
 filtered_data <- data[data[, 1] %in% selected_groups, ]
 filtered_label <- as.factor(filtered_data[, 1])
 filtered_features <- data.matrix(filtered_data[, -1])
 
-dfa_results <- pcdfa(filtered_features, label = filtered_label, no_pc = 10, maxfac = NULL)
+dfa_results <- pcdfa(filtered_features, label = filtered_label, no_pc = 1, maxfac = NULL)
 
 write.csv(dfa_results$scores, dfa_output_path, row.names = TRUE)
 write.csv(dfa_results$loadings, dfa_loadings_path, row.names = TRUE)
