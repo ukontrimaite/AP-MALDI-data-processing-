@@ -1,140 +1,240 @@
 # ========================== LOAD NECESSARY LIBRARIES ==========================
-library(ggplot2)
+# Install these if needed:
+# install.packages(c("dplyr", "openxlsx"))
+# install.packages("missForest")
+
 library(dplyr)
 library(openxlsx)
 library(missForest)  # For Random Forest Imputation
 
-# ========================== LOAD & MERGE DATA ==========================
-
-# Define file paths for two input files
+# ========================== USER INPUT SECTION ==========================
+# 1) List all the Excel files you want to merge.
+#    -> You can include 2, 3, 10... any number of files.
 file_paths <- c(
-  "/Users/file_path.xlsx",
-  "/Users/file_path.xlsx"
+  "/Users/unek/Desktop/collagen_1_r.xlsx",
+  "/Users/unek/Desktop/collagen_2_r.xlsx",
+  "/Users/unek/Desktop/collagen_3_r.xlsx",
+  "/Users/unek/Desktop/control_1_r.xlsx",
+  "/Users/unek/Desktop/control_2_r.xlsx",
+  "/Users/unek/Desktop/control_3_r.xlsx"
+  # Add more paths here, e.g. "/Users/path_to_file3.xlsx"
 )
 
-# Load all datasets
-dfs <- lapply(file_paths, read.xlsx)
+# 2) Set ppm tolerance for m/z grouping (Orbitrap 140k: 3–5 ppm is typical)
+ppm_tolerance <- 5
 
-# Ensure mz column is numeric
-dfs <- lapply(dfs, function(df) { df$mz <- as.numeric(df$mz); return(df) })
+# 3) Choose imputation method: "minimal" or "random_forest"
+#    - "minimal": MetaboAnalyst-style replacement with small value
+#    - "random_forest": RF imputation, then MetaboAnalyst-style small-value fix
+imputation_method <- "random_forest"  # or "random_forest"
 
-# Merge all datasets by "mz"
-df_combined <- Reduce(function(x, y) full_join(x, y, by = "mz"), dfs)
+# 4) Output file path
+output_path <- paste0("/Users/unek/Desktop/combined_ppm_merged_", imputation_method, ".xlsx")
 
-# Identify intensity columns (excluding mz)
-intensity_cols <- setdiff(names(df_combined), "mz")
+# ========================== LOAD DATA FILES ==========================
 
-# Convert intensity columns to numeric
-df_combined[intensity_cols] <- lapply(df_combined[intensity_cols], function(x) as.numeric(as.character(x)))
+# Read all files into a list of data frames
+dfs <- lapply(file_paths, function(fp) {
+  df <- read.xlsx(fp)
+  
+  # Basic checks
+  if (!"mz" %in% names(df)) {
+    stop(paste("File", fp, "does not contain a column named 'mz'."))
+  }
+  
+  # Ensure mz is numeric
+  df$mz <- as.numeric(df$mz)
+  
+  return(df)
+})
 
-# ========================== IMPUTATION CHOICE ==========================
+# ========================== PPM-BASED m/z GROUPING ==========================
+# Goal:
+#  - Take all m/z values across all files
+#  - Group them into clusters where values are within ppm_tolerance
+#  - Replace original m/z in each file with a "group m/z" (mean m/z of the group)
+#  - Then merge by this grouped m/z
 
-# Choose imputation method: "minimal" or "random_forest"
-imputation_method <- "random_forest"  # Change this as needed
+# 1) Collect all unique m/z values (excluding NAs)
+all_mz <- sort(unique(unlist(lapply(dfs, function(df) df$mz))))
+all_mz <- all_mz[!is.na(all_mz)]
 
-if (imputation_method == "minimal") {
-  # Minimal imputation (Replace NAs and zeros with smallest positive value)
-  min_positive_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
-  df_combined[intensity_cols][is.na(df_combined[intensity_cols])] <- min_positive_value
-  df_combined[intensity_cols][df_combined[intensity_cols] == 0] <- min_positive_value
-} else if (imputation_method == "random_forest") {
-  # Random Forest Imputation
-  data_matrix <- as.data.frame(df_combined[intensity_cols])
-  rf_imputed <- missForest(data_matrix)
-  df_combined[intensity_cols] <- rf_imputed$ximp
+if (length(all_mz) == 0) {
+  stop("No valid m/z values found across input files.")
 }
 
-# Save the preprocessed dataset
-preprocessed_output_path <- paste0("/Users/combined_preprocessed_", imputation_method, ".xlsx")
-write.xlsx(df_combined, preprocessed_output_path, rowNames = FALSE)
-cat("Preprocessed data (", imputation_method, " Imputed) saved to: ", preprocessed_output_path, "\n")
+# 2) Assign group IDs using a simple greedy algorithm
+#    - Start from smallest m/z as group seed
+#    - Keep adding m/z to current group if within ppm_tolerance of the seed
+group_index <- integer(length(all_mz))
+current_group <- 1
+seed_mz <- all_mz[1]
+group_index[1] <- current_group
 
-# ========================== METABOANALYST ZERO & NEGATIVE VALUE REPLACEMENT ==========================
-
-# Replace zero & negative values with one-tenth of the smallest positive value
-min_positive_value <- min(df_combined[intensity_cols][df_combined[intensity_cols] > 0], na.rm = TRUE)
-replacement_value <- min_positive_value / 10
-df_combined[intensity_cols][df_combined[intensity_cols] <= 0] <- replacement_value
-
-# ========================== APPLY LOG10 TRANSFORMATION ==========================
-
-df_log10 <- df_combined
-df_log10[intensity_cols] <- lapply(df_log10[intensity_cols], function(x) log10(x))
-df_log10 <- as.data.frame(df_log10)  # Convert back to dataframe after lapply
-
-# Replace Inf & NaN with replacement_value
-for (col in intensity_cols) {
-  df_log10[[col]][is.infinite(df_log10[[col]]) | is.na(df_log10[[col]])] <- replacement_value
-}
-
-# Save transformed data
-transformed_output_path <- "/Users/combined_transformed_log10.xlsx"
-write.xlsx(df_log10, transformed_output_path, rowNames = FALSE)
-cat("Log10 transformed data saved to:", transformed_output_path, "\n")
-
-# ========================== SCALING CHOICE ==========================
-
-# Choose scaling method: "pareto", "autoscale", or "none"
-scaling_method <- "pareto"  # Change as needed
-
-apply_scaling <- function(df, method) {
-  if (method == "pareto") {
-    df_scaled <- df
-    df_scaled[intensity_cols] <- scale(df[intensity_cols], center = TRUE, scale = sqrt(apply(df[intensity_cols], 2, sd, na.rm = TRUE)))
-    return(df_scaled)
-  } else if (method == "autoscale") {
-    df_scaled <- df
-    df_scaled[intensity_cols] <- scale(df[intensity_cols])
-    return(df_scaled)
+for (i in 2:length(all_mz)) {
+  mz_i <- all_mz[i]
+  ppm_diff <- abs(mz_i - seed_mz) / seed_mz * 1e6
+  
+  if (ppm_diff <= ppm_tolerance) {
+    # Same group
+    group_index[i] <- current_group
   } else {
-    return(df)  # If "none", return original transformed data
+    # Start new group
+    current_group <- current_group + 1
+    seed_mz <- mz_i
+    group_index[i] <- current_group
   }
 }
 
-df_scaled <- apply_scaling(df_log10, scaling_method)
+# 3) For each group, compute representative m/z as the mean of values in that group
+group_mz_mean <- tapply(all_mz, group_index, mean)
 
-# Save scaled data
-if (scaling_method != "none") {
-  scaled_output_path <- paste0("/Users/combined_log10_", scaling_method, "_scaled.xlsx")
-  write.xlsx(df_scaled, scaled_output_path, row.names = FALSE)
-  cat("Log10 transformed +", scaling_method, "scaled data saved to:", scaled_output_path, "\n")
+# 4) Create a lookup: original m/z -> grouped m/z (mean)
+#    (names are original mz values, values are grouped mean mz)
+grouped_mz_vector <- group_mz_mean[group_index]       # same length as all_mz
+mz_map <- setNames(grouped_mz_vector, all_mz)         # named vector
+
+# 5) Apply the grouping to each data frame
+dfs_grouped <- lapply(dfs, function(df) {
+  # Map each mz to its group mean; if mz is NA, keep NA
+  df$mz <- mz_map[as.character(df$mz)]
+  return(df)
+})
+
+# ========================== MERGE ALL DATA FRAMES BY GROUPED m/z ==========================
+
+df_combined <- Reduce(function(x, y) full_join(x, y, by = "mz"), dfs_grouped)
+
+# Identify intensity columns (all non-mz columns)
+intensity_cols <- setdiff(names(df_combined), "mz")
+
+# Convert intensity columns to numeric
+df_combined[intensity_cols] <- lapply(df_combined[intensity_cols], function(x) {
+  as.numeric(as.character(x))
+})
+
+# ========================== IMPUTATION + METABOANALYST-STYLE REPLACEMENT ==========================
+
+# We will:
+#  - Treat NAs, zeros and negative values as "missing"
+#  - For "minimal": replace all missing with small positive value (min_positive / 10)
+#  - For "random_forest": RF-impute missing; then ensure no zeros/negatives remain by
+#    replacing any <= 0 with min_positive/10
+
+imputation_method <- match.arg(imputation_method, choices = c("minimal", "random_forest"))
+
+data_int <- as.data.frame(df_combined[intensity_cols])
+
+if (imputation_method == "minimal") {
+  # --- MINIMAL IMPUTATION (MetaboAnalyst-style) ---
+  
+  # Treat zeros and negative values as missing
+  data_int[data_int <= 0] <- NA
+  
+  # Find smallest positive value in the whole intensity matrix
+  min_positive <- min(data_int[data_int > 0], na.rm = TRUE)
+  
+  if (!is.finite(min_positive)) {
+    stop("No positive values found in intensity data – cannot perform minimal imputation.")
+  }
+  
+  replacement_value <- min_positive / 10
+  
+  # Replace all NA (original NA, zeros, negatives) with small positive value
+  data_int[is.na(data_int)] <- replacement_value
+  
+  df_combined[intensity_cols] <- data_int
+  
+} else if (imputation_method == "random_forest") {
+  # --- RANDOM FOREST IMPUTATION + MetaboAnalyst-style fix ---
+  
+  # Treat zeros and negative values as missing before RF
+  data_int[data_int <= 0] <- NA
+  
+  # Random Forest imputation
+  rf_imputed <- missForest(data_int)
+  imputed <- rf_imputed$ximp
+  
+  # After RF, ensure no zeros or negatives remain.
+  # Find smallest positive value
+  min_positive <- min(imputed[imputed > 0], na.rm = TRUE)
+  
+  if (!is.finite(min_positive)) {
+    stop("No positive values after random forest imputation – cannot apply MetaboAnalyst-style replacement.")
+  }
+  
+  replacement_value <- min_positive / 10
+  
+  # Replace any remaining zeros/negatives with small positive value
+  imputed[imputed <= 0] <- replacement_value
+  
+  df_combined[intensity_cols] <- imputed
 }
 
-# ========================== CREATE & SAVE HISTOGRAM PLOTS ==========================
+# ========================== SAVE RESULT ==========================
 
-# Define colors
-color_preprocessed <- "blue"
-  color_log10 <- "red"
-    color_scaled <- "green"
-      
-    # Function to generate histograms
-    generate_histogram <- function(df, title, color) {
-      df$mean_intensity <- rowMeans(df[intensity_cols], na.rm = TRUE)
-      ggplot(df, aes(x = mean_intensity)) +
-        geom_histogram(bins = 30, fill = color, color = "black", alpha = 0.7) +
-        labs(title = title, x = "Mean Intensity", y = "Frequency") +
-        theme_minimal() +
-        theme(plot.title = element_text(size = 10))
-    }
+write.xlsx(df_combined, output_path, rowNames = FALSE)
+cat("Combined, ppm-merged, and", imputation_method, "imputed data saved to:\n", output_path, "\n")
+
+# ============================================================================
+# ====================== LOG10 TRANSFORMATION =========================
+# ============================================================================
+
+df_log10 <- df_combined
+
+# Apply log10 to intensity columns only
+df_log10[intensity_cols] <- lapply(df_log10[intensity_cols], function(x) log10(x))
+
+# Replace Inf and NaN resulting from log10(0) or invalid cases
+for (col in intensity_cols) {
+  df_log10[[col]][is.infinite(df_log10[[col]]) | is.na(df_log10[[col]])] <- log10(replacement_value)
+}
+
+# Save log10-transformed data
+log_output_path <- "/Users/unek/Desktop/combined_log10_transformed.xlsx"
+write.xlsx(df_log10, log_output_path, rowNames = FALSE)
+cat("Log10-transformed data saved to:", log_output_path, "\n")
+
+
+# ============================================================================
+# ============================ SCALING SECTION ================================
+# ============================================================================
+
+# Choose scaling method: "pareto", "autoscale", or "none"
+scaling_method <- "pareto"   # <-- change here as needed
+
+scale_data <- function(df, method, intensity_cols) {
+  
+  df_scaled <- df
+  
+  if (method == "pareto") {
+    # Pareto scaling = (x - mean) / sqrt(sd)
+    df_scaled[intensity_cols] <- scale(
+      df[intensity_cols],
+      center = TRUE,
+      scale = sqrt(apply(df[intensity_cols], 2, sd, na.rm = TRUE))
+    )
     
-    # Generate histograms
-    p0 <- generate_histogram(df_combined, paste("Preprocessed Mean Intensity (", imputation_method, " Imputed)"), color_preprocessed)
-    p1 <- generate_histogram(df_log10, "Log10 Transformed Mean Intensity", color_log10)
+  } else if (method == "autoscale") {
+    # Autoscaling = Z-score = (x - mean) / sd
+    df_scaled[intensity_cols] <- scale(df[intensity_cols], center = TRUE, scale = TRUE)
     
-    # Generate histogram for scaled data (only if scaling is applied)
-    if (scaling_method != "none") {
-      p2 <- generate_histogram(df_scaled, paste("Log10 +", scaling_method, "Scaled Mean Intensity"), color_scaled)
-    }
-    
-    # Save histograms
-    ggsave("/Users/preprocessed_histogram.png", plot = p0, width = 6, height = 4, dpi = 300)
-    ggsave("/Users/log10_transformed_histogram.png", plot = p1, width = 6, height = 4, dpi = 300)
-    
-    # Save scaled histogram if applicable
-    if (scaling_method != "none") {
-      ggsave(paste0("/Users/log10_", scaling_method, "_scaled_histogram.png"), plot = p2, width = 6, height = 4, dpi = 300)
-    }
-    
-    cat("Histograms saved.\n")
-    
-    
+  } else if (method == "none") {
+    # No scaling applied
+    df_scaled <- df
+  } else {
+    stop("Invalid scaling option. Choose 'pareto', 'autoscale', or 'none'.")
+  }
+  
+  return(df_scaled)
+}
+
+# Apply scaling
+df_scaled <- scale_data(df_log10, scaling_method, intensity_cols)
+
+# Save scaled data
+scaled_output_path <- paste0("/Users/unek/Desktop/combined_scaled_", scaling_method, ".xlsx")
+write.xlsx(df_scaled, scaled_output_path, rowNames = FALSE)
+cat("Scaled data (", scaling_method, ") saved to: ", scaled_output_path, "\n")
+
+
