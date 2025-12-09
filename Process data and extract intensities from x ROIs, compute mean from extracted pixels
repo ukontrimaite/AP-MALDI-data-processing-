@@ -66,3 +66,18 @@ output_excel_file <- "~/Documents/file_name.xlsx"
 write.xlsx(combined_roi_data, file = output_excel_file, rowNames = FALSE)
 print(paste("Excel file saved at:", output_excel_file))
 
+# ----------------------------
+# Image generation
+# ----------------------------
+
+# mz=input your desired mz, zlim function allows you to select your own intensity threshold, if wanted to use it
+# Add a line zlim = c(0,150), meaning 150 is highest intensity in the threshold bar
+# If you want to generate more than 1 mz image at a time copy/paste the following lines
+
+# First m/z image generation
+output_path <- "/Users/unek/Desktop/image_104.1065.png"
+png(output_path, width = 800, height = 800)
+image(mse_peaks, mz = 104.0748, col = viridis(100))
+dev.off()
+
+
