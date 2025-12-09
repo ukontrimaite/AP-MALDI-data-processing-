@@ -16,15 +16,15 @@ library(ggrepel)
 # ============================
 # Define File Paths
 # ============================
-data_path <- "/Users/unek/Desktop/combined_ppm_merged_random_forest_pcadf.csv"
-pca_output_path <- "/Users/unek/Desktop/pca_results_pos.csv"
-pca_scores_path <- "/Users/unek/Desktop/pca_scores.csv"
-dfa_output_path <- "/Users/unek/Desktop/dfa_results_pos.csv"
-dfa_loadings_path <- "/Users/unek/Desktop/dfa_loadings_pos.csv"
+data_path <- "/correctpath/file1.csv"
+pca_output_path <- "/correctpath/pca_results_pos.csv"
+pca_scores_path <- "/correctpath/pca_scores.csv"
+dfa_output_path <- "/correctpath/dfa_results_pos.csv"
+dfa_loadings_path <- "/correctpath/dfa_loadings_pos.csv"
 
-pca_plot_path <- "/Users/unek/Desktop/PCA_plot_final.png"
-pca_plot_ci_path <- "/Users/unek/Desktop/PCA_plot_with_95CI.png"
-pca_plot_filled_path <- "/Users/unek/Desktop/PCA_plot_filled_ellipses.png"
+pca_plot_path <- "/correctpath/PCA_plot_final.png"
+pca_plot_ci_path <- "/correctpath/PCA_plot_with_95CI.png"
+pca_plot_filled_path <- "/correctpath/PCA_plot_filled_ellipses.png"
 
 # ============================
 # Load and Preprocess Data
@@ -112,7 +112,7 @@ pca_raw_values <- data.frame(
 )
 
 # Save the raw PC values with sample labels
-raw_pc_path <- "/Users/unek/Desktop/PCA_raw_PC_values.csv"
+raw_pc_path <- "/correctpath/PCA_raw_PC_values.csv"
 write.csv(pca_raw_values, raw_pc_path, row.names = FALSE)
 
 # Compute mean PC values per group (PC1–PC5)
@@ -121,7 +121,7 @@ pca_means <- aggregate(pca_results$x[, 1:4],
                        FUN = mean)
 
 # Save mean PC direction values
-mean_pc_path <- "/Users/unek/Desktop/PCA_mean_PC_values.csv"
+mean_pc_path <- "/correctpath/PCA_mean_PC_values.csv"
 write.csv(pca_means, mean_pc_path, row.names = FALSE)
 
 # Select which PC to inspect (e.g., 1 = PC1)
@@ -137,7 +137,7 @@ pc_loadings_df <- data.frame(
 pc_loadings_df <- pc_loadings_df[order(abs(pc_loadings_df$Loading), decreasing = TRUE), ]
 
 # Save loadings for the selected PC
-pc_loading_path <- paste0("/Users/unek/Desktop/PCA_Loadings_PC", selected_PC, ".csv")
+pc_loading_path <- paste0("/correctpath/PCA_Loadings_PC", selected_PC, ".csv")
 write.csv(pc_loadings_df, pc_loading_path, row.names = FALSE)
 
 # ============================
