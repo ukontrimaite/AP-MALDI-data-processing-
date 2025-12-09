@@ -1,8 +1,8 @@
 library(openxlsx)
 library(dplyr)
 
-data_df  <- read.xlsx("/Users/unek/Desktop/annotations_collagen_control.xlsx")
-annot_df <- read.xlsx("/Users/unek/Desktop/combined_mz_rf_.xlsx")
+data_df  <- read.xlsx("correctpath/file.xlsx")
+annot_df <- read.xlsx("correctpath/file.xlsx.xlsx")
 
 data_df$mz  <- as.numeric(data_df$mz)
 annot_df$mz <- as.numeric(annot_df$mz)
@@ -11,6 +11,6 @@ merged_df <- full_join(data_df, annot_df, by = "mz")
 
 write.xlsx(
   merged_df,
-  "/Users/unek/Desktop/combined_with_annotations.xlsx",
+  "correctpath/result_file.xlsx",
   rowNames = FALSE
 )
