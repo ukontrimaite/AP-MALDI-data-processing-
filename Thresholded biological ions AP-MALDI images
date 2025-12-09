@@ -28,7 +28,7 @@ mse_filt <- subsetFeatures(mse_peaks, freq > 0.1)
 mse <- mse_filt
 
 # ----------------------------
-# Image generation and saved png file
+# Image generation
 # ----------------------------
 
 # mz=input your desired mz, zlim function allows you to select your own intensity threshold, if wanted to use it
