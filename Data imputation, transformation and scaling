@@ -11,16 +11,16 @@ library(missForest)  # For Random Forest Imputation
 # 1) List all the Excel files you want to merge.
 #    -> You can include 2, 3, 10... any number of files.
 file_paths <- c(
-  "/Users/unek/Desktop/collagen_1_r.xlsx",
-  "/Users/unek/Desktop/collagen_2_r.xlsx",
-  "/Users/unek/Desktop/collagen_3_r.xlsx",
-  "/Users/unek/Desktop/control_1_r.xlsx",
-  "/Users/unek/Desktop/control_2_r.xlsx",
-  "/Users/unek/Desktop/control_3_r.xlsx"
+  "/correctpath/file1.xlsx",
+  "/correctpath/file2.xlsx",
+  "/correctpath/file3.xlsx",
+  "/correctpath/file4.xlsx",
+  "/correctpath/file5.xlsx",
+  "/correctpath/file6.xlsx"
   # Add more paths here, e.g. "/Users/path_to_file3.xlsx"
 )
 
-# 2) Set ppm tolerance for m/z grouping (Orbitrap 140k: 3–5 ppm is typical)
+# 2) Set ppm tolerance for m/z grouping (Orbitrap 140k: 3–5 ppm)
 ppm_tolerance <- 5
 
 # 3) Choose imputation method: "minimal" or "random_forest"
@@ -29,7 +29,7 @@ ppm_tolerance <- 5
 imputation_method <- "random_forest"  # or "random_forest"
 
 # 4) Output file path
-output_path <- paste0("/Users/unek/Desktop/combined_ppm_merged_", imputation_method, ".xlsx")
+output_path <- paste0("/correctpath/filecombined_ppm_merged_", imputation_method, ".xlsx")
 
 # ========================== LOAD DATA FILES ==========================
 
@@ -63,7 +63,7 @@ if (length(all_mz) == 0) {
   stop("No valid m/z values found across input files.")
 }
 
-# 2) Assign group IDs using a simple greedy algorithm
+# 2) Assign group IDs
 #    - Start from smallest m/z as group seed
 #    - Keep adding m/z to current group if within ppm_tolerance of the seed
 group_index <- integer(length(all_mz))
@@ -191,7 +191,7 @@ for (col in intensity_cols) {
 }
 
 # Save log10-transformed data
-log_output_path <- "/Users/unek/Desktop/combined_log10_transformed.xlsx"
+log_output_path <- "/correctpath/combined_log10_transformed.xlsx"
 write.xlsx(df_log10, log_output_path, rowNames = FALSE)
 cat("Log10-transformed data saved to:", log_output_path, "\n")
 
@@ -233,7 +233,7 @@ scale_data <- function(df, method, intensity_cols) {
 df_scaled <- scale_data(df_log10, scaling_method, intensity_cols)
 
 # Save scaled data
-scaled_output_path <- paste0("/Users/unek/Desktop/combined_scaled_", scaling_method, ".xlsx")
+scaled_output_path <- paste0("/correctpath/combined_scaled_", scaling_method, ".xlsx")
 write.xlsx(df_scaled, scaled_output_path, rowNames = FALSE)
 cat("Scaled data (", scaling_method, ") saved to: ", scaled_output_path, "\n")
 
