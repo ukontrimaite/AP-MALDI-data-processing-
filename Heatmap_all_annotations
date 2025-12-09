@@ -4,7 +4,7 @@ library(RColorBrewer)
 library(gtools)  # for natural sorting
 
 # Load data
-data <- read.csv("/Users/unek/Desktop/hmdb_metabolites.csv", row.names = 1)
+data <- read.csv("/correctpath/file.csv", row.names = 1)
 
 # Transpose (rows = samples, columns = features)
 data_t <- t(data)
@@ -28,8 +28,8 @@ cell_groups <- sub("_.*", "", rownames(data_top))
 annotation_col <- data.frame(Group = cell_groups, row.names = rownames(data_top))
 
 # Define group colors
-group_order <- c("HA", "GIN8", "GIN28", "GIN31")
-group_palette <- c(HA = "#00A651", GIN8 = "#5DA5DA", GIN28 = "#2171B5", GIN31 = "#08306B")
+group_order <- c("group1", "group2", "group3", "group4")
+group_palette <- c(group1 = "#00A651", group2 = "#5DA5DA", group3 = "#2171B5", group4 = "#08306B")
 ann_colors <- list(Group = group_palette)
 
 # Order samples by group and index
@@ -47,7 +47,7 @@ feature_order <- order(apply(group_means, 2, function(x) names(which.max(x))))
 data_top_ordered_grouped <- t(data_top_ordered)[feature_order, ]
 
 # Save heatmap as PNG
-png("/Users/unek/Desktop/RandomForest_Heatmap.png", width = 1600, height = 1200, res = 150)
+png("/correctpath/RandomForest_Heatmap.png", width = 1600, height = 1200, res = 150)
 pheatmap(data_top_ordered_grouped,
          cluster_rows = TRUE,
          cluster_cols = FALSE,
