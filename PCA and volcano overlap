@@ -7,8 +7,8 @@ library(readr)
 show_labels <- TRUE  # Set to FALSE to hide m/z text labels on plot
 
 # === Step 1: Load the volcano and PCA loading files ===
-volcano_df <- read_csv("/Users/unek/Desktop/volcano_results_GIN_vs_HA_2.csv")
-pca_loadings <- read_csv("/Users/unek/Desktop/dfa_loadings_gin_ha_2.csv")
+volcano_df <- read_csv("/correctpath/file.csv")
+pca_loadings <- read_csv("/correctpath/file.csv")
 
 # === Step 2: Rename columns to reflect actual content ===
 colnames(pca_loadings)[1:2] <- c("mz", "PC1_loading")
