@@ -3,7 +3,7 @@ library(ggplot2)
 library(dplyr)
 
 # Load the data, and keep m/z as a column (don't set as rownames yet)
-data_path <- "/Users/unek/Desktop/group_gin_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin.csv"
+data_path <- "/correctpath/file.csv"
 data_raw <- read.csv(data_path, check.names = FALSE)
 
 # Extract m/z values and store them
@@ -12,8 +12,8 @@ data <- data_raw[ , -1]     # Remove the m/z column for now
 rownames(data) <- mz_values # Set rownames temporarily for processing
 
 # Extract GIN and HA sample column names
-gin_samples <- grep("^GIN", colnames(data), value = TRUE)
-ha_samples  <- grep("^HA", colnames(data), value = TRUE)
+gin_samples <- grep("^group1", colnames(data), value = TRUE)
+ha_samples  <- grep("^group2", colnames(data), value = TRUE)
 
 # Initialize list to store volcano plot results
 volcano_results <- list()
@@ -23,22 +23,22 @@ for (i in 1:nrow(data)) {
   mz <- rownames(data)[i]  # m/z or feature name
   
   # Extract raw intensity values
-  gin_raw <- as.numeric(data[i, gin_samples])
-  ha_raw  <- as.numeric(data[i, ha_samples])
+ group1_raw <- as.numeric(data[i, group1_samples])
+group2_raw  <- as.numeric(data[i, group2_samples])
   
   # Skip if missing values are present
-  if (any(is.na(gin_raw)) | any(is.na(ha_raw))) next
+  if (any(is.na(group1_raw)) | any(is.na(group2_raw))) next
   
   # Calculate raw fold change (before log transform)
-  raw_fold_change <- median(gin_raw) / median(ha_raw)
+  raw_fold_change <- median(group1_raw) / median(group2_raw)
   
   # Apply log10 transformation with small pseudocount to avoid log(0)
-  gin_values <- log10(gin_raw + 1e-8)
-  ha_values  <- log10(ha_raw + 1e-8)
+  group1_values <- log10(group1_raw + 1e-8)
+  group2_values  <- log10(group2_raw + 1e-8)
   
   # Perform Mann–Whitney U test (Wilcoxon rank-sum)
   test_result <- tryCatch({
-    wilcox.test(gin_values, ha_values, alternative = "two.sided")
+    wilcox.test(group1_values, group2_values, alternative = "two.sided")
   }, warning = function(w) {
     NULL
   }, error = function(e) {
@@ -98,7 +98,7 @@ volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), colo
   xlim(-x_range_padding, x_range_padding) +
   ylim(0, 20) +
   labs(
-    title = "Volcano Plot: GIN vs HA",
+    title = "Volcano Plot: group1 vs group2",
     x = "log₂ Fold Change",
     y = "-log₁₀ Adjusted p-value"
   ) +
@@ -113,5 +113,5 @@ volcano_plot <- ggplot(volcano_df, aes(x = log2FC, y = -log10(adj_p_value), colo
 print(volcano_plot)
 
 # Save volcano plot and results table
-ggsave("/Users/unek/Desktop/volcano_plot_GIN_vs_HA_adjusted.png", plot = volcano_plot, width = 10, height = 6)
-write.csv(volcano_df, "/Users/unek/Desktop/volcano_results_GIN_vs_HA.csv", row.names = FALSE)
+ggsave("/correctpath/file.png", plot = volcano_plot, width = 10, height = 6)
+write.csv(volcano_df, "/correctpath/volcano_results_.csv", row.names = FALSE)
