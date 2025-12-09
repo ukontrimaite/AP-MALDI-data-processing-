@@ -13,7 +13,7 @@ library(dplyr)
 library(tidyr)
 
 # Load data
-file_path <- "/Users/unek/Desktop/GlobalGIN_HAcombined_log10_pareto_scaled_mad5locmin.xlsx"
+file_path <- "/correctpath/file.xlsx"
 data <- read_excel(file_path)
 
 # Extract group names from column headers (excluding 'mz')
@@ -46,11 +46,11 @@ for (i in 1:nrow(sampled_data)) {
     summarise(Normality_p = shapiro.test(Value)$p.value) %>%
     pivot_wider(names_from = Group, values_from = Normality_p)
   
-  # Levene's test for equal variance vs HA for each GIN group
+  # Levene's test for equal variance for each group
   row_tidy$Group <- factor(row_tidy$Group)
-  var_gin28 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN28", "HA")))
-  var_gin8 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN8", "HA")))
-  var_gin31 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("GIN31", "HA")))
+  var_group1 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("group1", "group4")))
+  var_group2 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("group2", "group4")))
+  var_group2 <- leveneTest(Value ~ Group, data = row_tidy %>% filter(Group %in% c("group3", "group4")))
   
   # Test decision helper
   recommend <- function(norm1, norm2, var_eq) {
@@ -63,23 +63,23 @@ for (i in 1:nrow(sampled_data)) {
   }
   
   # Get normality p-values
-  p_gin28 <- norm_pvals$GIN28
-  p_gin8 <- norm_pvals$GIN8
-  p_gin31 <- norm_pvals$GIN31
-  p_ha <- norm_pvals$HA
+  p_group1 <- norm_pvals$group1
+  p_group2 <- norm_pvals$group2
+  p_group3 <- norm_pvals$group3
+  p_group4 <- norm_pvals$group4
   
   results[[i]] <- data.frame(
     mz = mz,
-    Norm_GIN28 = p_gin28,
-    Norm_GIN8 = p_gin8,
-    Norm_GIN31 = p_gin31,
+    Norm_group1 = p_group1,
+    Norm_group2 = p_group2,
+    Norm_group3 = p_group3,
     Norm_HA = p_ha,
-    Levene_GIN28_HA = var_gin28[1, "Pr(>F)"],
-    Levene_GIN8_HA = var_gin8[1, "Pr(>F)"],
-    Levene_GIN31_HA = var_gin31[1, "Pr(>F)"],
-    Test_GIN28_HA = recommend(p_gin28, p_ha, var_gin28[1, "Pr(>F)"]),
-    Test_GIN8_HA = recommend(p_gin8, p_ha, var_gin8[1, "Pr(>F)"]),
-    Test_GIN31_HA = recommend(p_gin31, p_ha, var_gin31[1, "Pr(>F)"])
+    Levene_group1_4 = var_group1[1, "Pr(>F)"],
+    Levene_group2_4 = var_group2[1, "Pr(>F)"],
+    Levene_group3_4 = var_group3[1, "Pr(>F)"],
+    Test_group1_4 = recommend(p_gin28, p_ha, var_group1[1, "Pr(>F)"]),
+    Test_group2_4 = recommend(p_gin8, p_ha, var_group2[1, "Pr(>F)"]),
+    Test_group3_4 = recommend(p_gin31, p_ha, var_group3[1, "Pr(>F)"])
   )
 }
 
@@ -90,5 +90,5 @@ summary_table <- do.call(rbind, results)
 print(summary_table)
 
 # Optionally save
-write.csv(summary_table, "/Users/unek/Desktop/normality_variance_test_summary.csv", row.names = FALSE)
+write.csv(summary_table, "/correctpath/normality_variance_test_summary.csv", row.names = FALSE)
 
