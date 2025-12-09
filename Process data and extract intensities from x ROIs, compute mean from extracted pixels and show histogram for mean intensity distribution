@@ -50,9 +50,6 @@ for (i in 1:10) {
   # Compute mean intensities for each m/z across extracted pixels
   mean_intensities <- rowMeans(roi_intensities, na.rm = TRUE)
   
-  # Store intensities for histogram
-  all_intensities <- c(all_intensities, mean_intensities)
-  
   # Create a data frame with m/z and mean intensities
   roi_data <- data.frame(mz = mz(mse), Mean_Intensity = mean_intensities)
   names(roi_data)[2] <- roi_name  # Rename column to reflect cell name
@@ -69,25 +66,3 @@ output_excel_file <- "~/Documents/file_name.xlsx"
 write.xlsx(combined_roi_data, file = output_excel_file, rowNames = FALSE)
 print(paste("Excel file saved at:", output_excel_file))
 
-# ----------------------------
-# Histogram of Intensities
-# ----------------------------
-
-# Convert to data frame for plotting
-intensity_df <- data.frame(Intensity = all_intensities)
-
-# Plot histogram
-hist_plot <- ggplot(intensity_df, aes(x = Intensity)) +
-  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
-  labs(title = "Distribution of Intensities Across ROIs",
-       x = "Mean Intensity",
-       y = "Frequency") +
-  theme_minimal()
-
-# Save the plot
-output_plot_file <- "~/Documents/file_name.png"
-ggsave(output_plot_file, plot = hist_plot, width = 8, height = 6)
-print(paste("Histogram plot saved at:", output_plot_file))
-
-# Display the plot
-print(hist_plot)
