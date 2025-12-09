@@ -1,15 +1,15 @@
-# 📦 Load libraries
+# Load libraries
 library(randomForest)
 library(caret)
 library(ggplot2)
 library(pROC)
 library(rfPermute)
 
-# 📁 Input & output paths
-input_path <- "/Users/unek/Desktop/group_gin_GlobalGIN_HA_combined_preprocessed_random_forest_mad5locmin copy.csv"
-output_dir <- "/Users/unek/Desktop/"
+# Input & output paths
+input_path <- "/correctpath/file.csv"
+output_dir <- "/correctpath/file.csv"
 
-# 1️⃣ Load and clean data
+# Load data
 df <- read.csv(input_path, check.names = FALSE)
 df$Class <- as.factor(df$Class)
 
@@ -19,22 +19,19 @@ names(df) <- gsub("^X", "", names(df))
 # Separate numeric features
 df_numeric <- df[, sapply(df, is.numeric)]
 
-# ✅ Apply log10 transformation (add pseudocount to avoid log(0))
-df_numeric <- log10(df_numeric + 1e-8)
-
 # Add class column back
 df_numeric$Class <- df$Class
 
-# 🔧 Make feature names formula-safe
+# Make feature names formula-safe
 feature_cols <- setdiff(names(df_numeric), "Class")
 new_feature_names <- paste0("mz_", feature_cols)
 names(df_numeric)[names(df_numeric) != "Class"] <- new_feature_names
 
-# 🧪 Check class balance
+# Check class balance
 cat("Class Distribution:\n")
 print(table(df_numeric$Class))
 
-# 2️⃣ Set up repeated cross-validation
+# Set up repeated cross-validation
 set.seed(123)
 control <- trainControl(
   method = "repeatedcv",
@@ -45,7 +42,7 @@ control <- trainControl(
   summaryFunction = twoClassSummary
 )
 
-# 🔁 Train Random Forest model
+# Train Random Forest model
 rf_cv <- train(Class ~ ., data = df_numeric,
                method = "rf",
                trControl = control,
@@ -56,7 +53,7 @@ rf_cv <- train(Class ~ ., data = df_numeric,
 cat("\nCross-Validated Random Forest Model:\n")
 print(rf_cv)
 
-# 3️⃣ ROC Curve
+# ROC Curve
 rf_probs <- rf_cv$pred
 rf_probs <- rf_probs[rf_probs$mtry == rf_cv$bestTune$mtry, ]
 
@@ -68,7 +65,7 @@ png(filename = paste0(output_dir, "random_forest_ROC_curve.png"), width = 2000, 
 plot(roc_obj, col = "blue", lwd = 3, main = paste("ROC Curve (AUC =", round(auc_val, 3), ")"))
 dev.off()
 
-# 4️⃣ Permutation-based importance
+# Permutation-based importance
 set.seed(123)
 rf_perm <- rfPermute(Class ~ ., data = df_numeric, ntree = 500, num.rep = 100)
 
@@ -78,7 +75,7 @@ importance_df$Feature <- gsub("^mz_", "", importance_df$Feature)  # remove mz_ p
 
 write.csv(importance_df, paste0(output_dir, "random_forest_feature_importance.csv"), row.names = FALSE)
 
-# 5️⃣ Plot Top Features by Accuracy
+# Plot Top Features by Accuracy
 top_acc <- importance_df[order(-importance_df$MeanDecreaseAccuracy), ][1:20, ]
 
 p1 <- ggplot(top_acc, aes(x = reorder(Feature, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
@@ -89,7 +86,7 @@ p1 <- ggplot(top_acc, aes(x = reorder(Feature, MeanDecreaseAccuracy), y = MeanDe
 
 ggsave(filename = paste0(output_dir, "feature_importance_accuracy.png"), plot = p1, width = 8, height = 6, dpi = 300)
 
-# 6️⃣ Plot Top Features by Gini
+# Plot Top Features by Gini
 top_gini <- importance_df[order(-importance_df$MeanDecreaseGini), ][1:20, ]
 
 p2 <- ggplot(top_gini, aes(x = reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
@@ -100,7 +97,7 @@ p2 <- ggplot(top_gini, aes(x = reorder(Feature, MeanDecreaseGini), y = MeanDecre
 
 ggsave(filename = paste0(output_dir, "feature_importance_gini.png"), plot = p2, width = 8, height = 6, dpi = 300)
 
-# 7️⃣ Export CV Results
+# Export CV Results
 write.csv(rf_cv$results, file = paste0(output_dir, "random_forest_cross_validation_metrics.csv"), row.names = FALSE)
 
 cat("\n✅ All output files saved to:", output_dir, "\n")
