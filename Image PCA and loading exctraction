@@ -1,0 +1,92 @@
+# Load necessary libraries
+library(Cardinal)
+library(viridis)
+library(openxlsx)  # For writing to Excel
+library(ggplot2)   # For plotting
+library(moments)   # For skewness
+library(nortest)   # For normality tests
+
+# Load the file
+path_processed <- "/Users/unek/Desktop/retina_jan_25/160_1_50um_retina_pos.imzml"
+print(path_processed)
+
+# Load the processed imzML file
+msa_peaks <- readMSIData(path_processed)
+msa <- msa_peaks
+
+# Data pre-processing - specifications can be changed as per individual experiment 
+msa_pre <- normalize(msa, method="tic")
+msa_pre <- reduceBaseline(msa_pre, method="locmin")
+process(msa_pre)
+mse_peaks <- peakAlign(msa_pre, tolerance=5, units="ppm")
+mse <- mse_peaks
+
+# Optional - Data pre-processing step 
+mse_filt <- subsetFeatures(mse_peaks, freq > 0.1)
+mse <- mse_filt
+
+pca <- PCA(mse, ncomp=3)
+pca
+
+image(pca, type="x", superpose=FALSE, layout=c(1,3), scale=TRUE)
+plot(pca, type="x", groups=mse$design, linewidth=2)
+plot(pca, type="rotation", superpose=FALSE, layout=c(1,3), linewidth=2)
+
+# ----------------------------
+# Export PCA loadings with m/z to Excel (robust)
+# ----------------------------
+
+# 1) Get the loadings matrix from wherever your PCA object stores it
+L <- NULL
+
+# prcomp-style
+if (!is.null(pca$rotation)) L <- pca$rotation
+
+# alternative naming sometimes used
+if (is.null(L) && !is.null(pca$loadings)) L <- pca$loadings
+
+# fallback to stats::loadings() (works for princomp)
+if (is.null(L)) {
+  tmp <- try(stats::loadings(pca), silent = TRUE)
+  if (!inherits(tmp, "try-error")) L <- tmp
+}
+
+# Convert "loadings" class to plain matrix if needed
+if (!is.null(L) && !is.matrix(L)) L <- as.matrix(L)
+
+# 2) Determine m/z values that match the loadings rows
+mz_vec <- NULL
+
+# best case: rows match features in your mse object
+if (!is.null(L) && nrow(L) == length(mz(mse))) {
+  mz_vec <- mz(mse)
+} else {
+  # often rownames(L) are the m/z values (or feature labels)
+  rn <- rownames(L)
+  if (!is.null(rn)) {
+    suppressWarnings(mz_try <- as.numeric(rn))
+    if (sum(!is.na(mz_try)) > 0) mz_vec <- mz_try
+  }
+}
+
+# If still missing, stop with a helpful message
+if (is.null(L) || nrow(L) == 0) stop("Could not find loadings matrix in PCA object (rotation/loadings empty).")
+if (is.null(mz_vec) || length(mz_vec) != nrow(L)) {
+  stop(paste0("Loadings rows (", nrow(L), ") do not match m/z length. ",
+              "Try: str(pca) to see where loadings are stored."))
+}
+
+# 3) Build dataframe (all PCs you computed)
+loading_df <- data.frame(mz = mz_vec, L)
+
+# Optional: add absolute loadings columns (easy sorting in Excel)
+abs_df <- as.data.frame(abs(L))
+colnames(abs_df) <- paste0("abs_", colnames(L))
+loading_df <- cbind(loading_df, abs_df)
+
+# 4) Write to Excel
+output_excel_file_loadings <- "~/Documents/PCA_loadings_all_features.xlsx"
+openxlsx::write.xlsx(loading_df, file = output_excel_file_loadings, rowNames = FALSE)
+
+print(paste("PCA loadings Excel saved at:", output_excel_file_loadings))
+
