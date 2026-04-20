@@ -1,6 +1,8 @@
 library(dplyr)
 library(openxlsx)
 
+# ========================== LOAD & MERGE DATA ==========================
+
 # File paths
 file1 <- "/Users/unek/Desktop/PredictP7_mz_intensity_4dp.xlsx"
 file2 <- "/Users/unek/Desktop/PredictP7_assignments.xlsx"
@@ -15,10 +17,11 @@ df2$mz <- as.numeric(df2$mz)
 
 # Merge datasets by exact mz match
 # Use left_join if you want to keep all mz values from df1 and add annotations from df2
-df_combined <- left_join(df1, df2, by = "mz")
+df_combined <- full_join(df1, df2, by = "mz")
 
 # Output file
 output_file <- "/Users/unek/Desktop/final.xlsx"
 
 # Save merged dataframe
 write.xlsx(df_combined, file = output_file, rowNames = FALSE)
+
