@@ -4,8 +4,8 @@ library(openxlsx)
 # ========================== LOAD & MERGE DATA ==========================
 
 # File paths
-file1 <- "/Users/unek/Desktop/PredictP7_mz_intensity_4dp.xlsx"
-file2 <- "/Users/unek/Desktop/PredictP7_assignments.xlsx"
+file1 <- "/Users/unek/Desktop
+file2 <- "/Users/unek/Desktop
 
 # Read Excel files
 df1 <- read.xlsx(file1)
