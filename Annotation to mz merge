@@ -1,27 +1,178 @@
 library(dplyr)
 library(openxlsx)
 
-# ========================== LOAD & MERGE DATA ==========================
+# ========================== FILE PATHS ==========================
 
-# File paths
-file1 <- "/Users/unek/Desktop
-file2 <- "/Users/unek/Desktop
+intensity_file <- "/Users/x.xlsx"
+annotation_file <- "/Users/x.xlsx"
 
-# Read Excel files
-df1 <- read.xlsx(file1)
-df2 <- read.xlsx(file2)
-
-# Ensure mz column is numeric
-df1$mz <- as.numeric(df1$mz)
-df2$mz <- as.numeric(df2$mz)
-
-# Merge datasets by exact mz match
-# Use left_join if you want to keep all mz values from df1 and add annotations from df2
-df_combined <- full_join(df1, df2, by = "mz")
-
-# Output file
 output_file <- "/Users/unek/Desktop/final.xlsx"
 
-# Save merged dataframe
-write.xlsx(df_combined, file = output_file, rowNames = FALSE)
+ppm_tolerance <- 5
+
+
+# ========================== LOAD DATA ==========================
+
+df_intensity <- read.xlsx(intensity_file)
+df_annotation <- read.xlsx(annotation_file)
+
+
+# ========================== CHECK M/Z COLUMNS ==========================
+
+if (!"mz" %in% names(df_intensity)) {
+  stop("The intensity file does not contain a column named 'mz'.")
+}
+
+if (!"mz" %in% names(df_annotation)) {
+  stop("The annotation file does not contain a column named 'mz'.")
+}
+
+
+# Convert m/z values to numeric
+df_intensity$mz <- as.numeric(df_intensity$mz)
+df_annotation$mz <- as.numeric(df_annotation$mz)
+
+# Remove rows where m/z is missing
+df_intensity <- df_intensity %>%
+  filter(!is.na(mz))
+
+df_annotation <- df_annotation %>%
+  filter(!is.na(mz))
+
+
+# ========================== RENAME M/Z COLUMNS ==========================
+
+# Keeping both m/z columns allows you to inspect the matching
+df_intensity <- df_intensity %>%
+  rename(mz_intensity = mz)
+
+df_annotation <- df_annotation %>%
+  rename(mz_annotation = mz)
+
+
+# Prevent duplicate column names between the two files
+duplicate_columns <- intersect(
+  setdiff(names(df_intensity), "mz_intensity"),
+  setdiff(names(df_annotation), "mz_annotation")
+)
+
+if (length(duplicate_columns) > 0) {
+  df_annotation <- df_annotation %>%
+    rename_with(
+      ~ paste0(.x, "_annotation"),
+      all_of(duplicate_columns)
+    )
+}
+
+
+# ========================== FIND CLOSEST MATCH WITHIN 5 PPM ==========================
+
+find_closest_match <- function(observed_mz, annotation_mz, ppm_limit = 5) {
+  
+  # Calculate ppm difference relative to the annotation/theoretical m/z
+  ppm_errors <- abs(observed_mz - annotation_mz) /
+    annotation_mz * 1e6
+  
+  # Find annotations within the selected ppm tolerance
+  possible_matches <- which(ppm_errors <= ppm_limit)
+  
+  if (length(possible_matches) == 0) {
+    return(NA_integer_)
+  }
+  
+  # If several annotations are within 5 ppm, select the closest one
+  closest_match <- possible_matches[
+    which.min(ppm_errors[possible_matches])
+  ]
+  
+  return(closest_match)
+}
+
+
+# Find the best annotation match for each intensity m/z
+match_index <- vapply(
+  df_intensity$mz_intensity,
+  find_closest_match,
+  annotation_mz = df_annotation$mz_annotation,
+  ppm_limit = ppm_tolerance,
+  FUN.VALUE = integer(1)
+)
+
+
+# ========================== ADD ANNOTATION COLUMNS ==========================
+
+# Create an annotation table with one row for each intensity feature
+matched_annotations <- df_annotation[
+  match_index,
+  ,
+  drop = FALSE
+]
+
+# Restore NA rows properly for unmatched features
+unmatched_rows <- is.na(match_index)
+
+if (any(unmatched_rows)) {
+  matched_annotations[unmatched_rows, ] <- NA
+}
+
+# Combine all columns from both files
+df_combined <- bind_cols(
+  df_intensity,
+  matched_annotations
+)
+
+
+# ========================== CALCULATE PPM ERROR ==========================
+
+df_combined <- df_combined %>%
+  mutate(
+    ppm_error = ifelse(
+      is.na(mz_annotation),
+      NA_real_,
+      (mz_intensity - mz_annotation) /
+        mz_annotation * 1e6
+    ),
+    
+    absolute_ppm_error = abs(ppm_error),
+    
+    match_status = ifelse(
+      is.na(mz_annotation),
+      "No match within 5 ppm",
+      "Matched within 5 ppm"
+    )
+  )
+
+
+# ========================== ROUND DISPLAYED VALUES ==========================
+
+# Rounding only the displayed m/z and ppm values.
+# Intensity values are not rounded.
+df_combined <- df_combined %>%
+  mutate(
+    mz_intensity = round(mz_intensity, 4),
+    mz_annotation = round(mz_annotation, 4),
+    ppm_error = round(ppm_error, 4),
+    absolute_ppm_error = round(absolute_ppm_error, 4)
+  )
+
+
+# ========================== SAVE RESULTS ==========================
+
+write.xlsx(
+  df_combined,
+  file = output_file,
+  rowNames = FALSE,
+  overwrite = TRUE
+)
+
+cat(
+  "Merge complete.\n",
+  "Output saved to:\n",
+  output_file,
+  "\n\nMatched features:",
+  sum(df_combined$match_status == "Matched within 5 ppm"),
+  "\nUnmatched features:",
+  sum(df_combined$match_status == "No match within 5 ppm"),
+  "\n"
+)
 
